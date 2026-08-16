@@ -137,6 +137,7 @@ Glassbox AI III : 環境遷移後の報酬と割引Return
 
 - [ROADMAP.md](./ROADMAP.md) — 現在のbaseline、Now / Next / Later、非目標
 - [CHANGELOG.md](./CHANGELOG.md) — 公開baselineからの利用者向け変更履歴
+- [「自動で見る」共通UX](./docs/AUTO_OBSERVE_UX.md) — 初心者向けの二段構造と実値表示契約
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — 数学、Trace、browser検証を含む変更原則
 - [Security Policy](./SECURITY.md) — 対応範囲とPrivate vulnerability reporting
 - [Bug report](https://github.com/makotonanamori/glassbox-ai-suite/issues/new?template=bug_report.yml) / [Feature request](https://github.com/makotonanamori/glassbox-ai-suite/issues/new?template=feature_request.yml)

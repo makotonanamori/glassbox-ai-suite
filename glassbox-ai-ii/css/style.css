@@ -59,6 +59,11 @@ h3 { margin-bottom: .6rem; font-size: .86rem; }
 .first-run-action { display: grid; gap: .25rem; align-content: center; text-align: left; }
 .first-run-action span { color: var(--muted); font-size: .72rem; font-weight: 500; line-height: 1.45; }
 .first-run-action.selected { border-color: var(--accent); background: #203a37; box-shadow: inset 3px 0 var(--accent); }
+.experience-flow { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.experience-flow li { padding: .42rem .6rem; border: 1px solid var(--line); background: #101416; color: var(--muted); font: .7rem var(--mono); text-align: center; }
+.experience-flow li.active { border-color: var(--accent-2); color: var(--accent-2); }
+.experience-flow li.done { border-color: var(--positive); color: var(--positive); }
+[data-experience-state="running"] [data-experience-mode="auto"] { cursor: wait; }
 .first-run-status { grid-column: 1 / -1; margin: 0; padding-top: .65rem; border-top: 1px solid var(--line); color: var(--accent-2); font: .75rem/1.5 var(--mono); }
 main { padding: 1rem 1.5rem 1.5rem; }
 .tab-panel { display: none; }

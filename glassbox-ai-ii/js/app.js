@@ -28,6 +28,8 @@ let lastTrainingResult = null;
 let autoTraining = false;
 let generationCounter = 0;
 let firstRunMode = firstRunRequest === "training" ? "training" : "forward";
+let experienceState = "ready";
+let experienceMessage = "「自動で見る」を押してください。";
 
 function precision() { return Number($("#precision").value); }
 function fmt(value) { return formatter(precision())(value); }
@@ -43,21 +45,24 @@ function selectTab(name) {
 }
 
 function renderFirstRunGuide() {
-  const forwardSelected = firstRunMode === "forward";
-  $("#guide-forward").classList.toggle("selected", forwardSelected);
-  $("#guide-forward").setAttribute("aria-pressed", String(forwardSelected));
-  $("#guide-training").classList.toggle("selected", !forwardSelected);
-  $("#guide-training").setAttribute("aria-pressed", String(!forwardSelected));
-  if (forwardSelected) {
-    const complete = engine.index >= FORWARD_STAGES.length - 1;
-    $("#first-run-status").textContent = complete
-      ? "Forward 16 / 16完了。Probabilityの総和と次Token候補を確認し、次は「1回学習を観察」へ進めます。"
-      : `Forward ${engine.index + 1} / ${FORWARD_STAGES.length}。「Next」で実値を1段階ずつ、「Run Forward」で最後まで進めます。`;
-  } else {
-    $("#first-run-status").textContent = trainer.step === 0
-      ? "「Train One Step」でForward → Loss → Backward → Gradient → SGD Updateを実行し、学習前後を比較します。"
-      : `Training STEP ${trainer.step}完了。Loss、Gradient norm、更新前後のPredictionが同じ画面に反映されています。`;
-  }
+  const entry = $("[data-experience-entry]");
+  entry.dataset.experienceState = experienceState;
+  const autoSelected = experienceState !== "detail";
+  $("#guide-forward").classList.toggle("selected", autoSelected);
+  $("#guide-forward").setAttribute("aria-pressed", String(autoSelected));
+  $("#guide-training").classList.toggle("selected", !autoSelected);
+  $("#guide-training").setAttribute("aria-pressed", String(!autoSelected));
+  $("#guide-forward").disabled = experienceState === "running";
+  $("#guide-training").disabled = experienceState === "running";
+
+  const flowState = experienceState === "detail" ? "ready" : experienceState;
+  const flowOrder = { ready: 0, running: 1, complete: 2 };
+  const current = flowOrder[flowState] ?? 0;
+  entry.querySelectorAll("[data-flow-step]").forEach((item, index) => {
+    item.classList.toggle("done", index < current || flowState === "complete");
+    item.classList.toggle("active", index === current);
+  });
+  $("#first-run-status").textContent = experienceMessage;
 }
 
 function focusFirstRunTarget() {
@@ -70,6 +75,42 @@ function focusTrainingGuide() {
   const target = $("#guide-training");
   target.scrollIntoView({ behavior: "smooth", block: "center" });
   target.focus({ preventScroll: true });
+}
+
+async function runBeginnerAutoObserve() {
+  if (experienceState === "running") return;
+  firstRunMode = "training";
+  experienceState = "running";
+  experienceMessage = "動いています。文章から予測し、1回学習して、もう一度結果を計算しています。";
+  selectTab("training");
+  renderFirstRunGuide();
+  await new Promise((resolve) => window.requestAnimationFrame(resolve));
+  await runTraining(1);
+
+  if (!lastTrainingResult) {
+    experienceState = "ready";
+    experienceMessage = "自動実行を完了できませんでした。画面上部の停止理由を確認してください。";
+    renderFirstRunGuide();
+    return;
+  }
+  experienceState = "complete";
+  experienceMessage =
+    `結果が出ました。間違いの大きさが ${fmt(lastTrainingResult.lossBefore)} → ` +
+    `${fmt(lastTrainingResult.lossAfter)} に変わりました。`;
+  renderFirstRunGuide();
+  $("#training-comparison").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function showBeginnerDetail() {
+  firstRunMode = "forward";
+  experienceState = "detail";
+  experienceMessage = "同じ計算を先頭へ戻しました。「Next」で1つずつ確認できます。";
+  selectTab("playground");
+  if (!currentTrace) prepareForward();
+  engine.reset();
+  renderForward();
+  renderFirstRunGuide();
+  focusFirstRunTarget();
 }
 
 function initialize(seed = 42) {
@@ -88,6 +129,8 @@ function initialize(seed = 42) {
   selectedParameter = "embeddings.token";
   lastTrainingResult = null;
   generationCounter = 0;
+  experienceState = "ready";
+  experienceMessage = "「自動で見る」を押してください。";
   $("#seed-input").value = seed;
   renderStatic();
   prepareForward();
@@ -495,18 +538,8 @@ async function importState(file) {
 
 function bindEvents() {
   $$(".tab").forEach((button) => button.addEventListener("click", () => selectTab(button.dataset.tab)));
-  $("#guide-forward").addEventListener("click", () => {
-    firstRunMode = "forward";
-    selectTab("playground");
-    renderFirstRunGuide();
-    focusFirstRunTarget();
-  });
-  $("#guide-training").addEventListener("click", () => {
-    firstRunMode = "training";
-    selectTab("training");
-    renderFirstRunGuide();
-    focusFirstRunTarget();
-  });
+  $("#guide-forward").addEventListener("click", runBeginnerAutoObserve);
+  $("#guide-training").addEventListener("click", showBeginnerDetail);
   $("#prepare-forward").addEventListener("click", prepareForward);
   $("#forward-next").addEventListener("click", () => { engine.next(); renderForward(); });
   $("#forward-previous").addEventListener("click", () => { engine.previous(); renderForward(); });

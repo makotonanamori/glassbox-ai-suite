@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="application-name" content="glassbox-ai-suite">
-    <meta name="description" content="正解、次Token、報酬という三つの学習信号から、AIの学習を実数値で観察するGlassbox AIシリーズの入口。">
+    <meta name="description" content="説明より先にAIを動かし、学習で結果が変わる様子をブラウザですぐ見られるGlassbox AIシリーズの入口。">
     <title>Glassbox AI — AIの学習を数字で観察する</title>
     <link rel="stylesheet" href="./css/style.css">
   </head>
@@ -15,7 +15,7 @@
       <div class="brand">
         <p class="eyebrow">TRANSPARENT AI LEARNING LAB</p>
         <h1>Glassbox AI</h1>
-        <p>AIを使う前に、内部で数字がどう変わるかを見る。</p>
+        <p>まず動かす。変化を見る。仕組みの名前はそのあとで。</p>
       </div>
       <div class="lab-status" aria-label="実装方針">
         <span>LOCAL BROWSER</span>
@@ -29,16 +29,16 @@
       <section class="hero" aria-labelledby="hero-heading">
         <div>
           <p class="eyebrow">BEGIN HERE</p>
-          <h2 id="hero-heading">AIは、学習信号を使って<br>Parameterを更新する</h2>
-          <p class="hero-copy">このシリーズでは、予測だけでなく、誤差や報酬が勾配へ変わり、次の出力が変化するまでを実際の計算値で追跡します。</p>
-          <a class="primary-link" href="#learning-path">最初の実験を選ぶ <span aria-hidden="true">↓</span></a>
+          <h2 id="hero-heading">まず動かす。<br>変わった結果を見る。</h2>
+          <p class="hero-copy">説明を読まなくても始められます。ボタンを押すと、実際の計算が動き、学習前と学習後の違いが表示されます。</p>
+          <a class="primary-link" href="./glassbox-ai/?path=auto">Iを自動で見る（おすすめ） <span aria-hidden="true">→</span></a>
         </div>
         <ol class="causal-chain" aria-label="三つの実験に共通する学習の流れ">
-          <li><span>01</span><strong>入力を数値にする</strong></li>
-          <li><span>02</span><strong>Parameterで確率を計算</strong></li>
-          <li><span>03</span><strong>正解・次Token・報酬で評価</strong></li>
-          <li><span>04</span><strong>Gradientを求めて更新</strong></li>
-          <li><span>05</span><strong>次の出力変化を比較</strong></li>
+          <li><span>01</span><strong>スタートを押す</strong></li>
+          <li><span>02</span><strong>AIが動く</strong></li>
+          <li><span>03</span><strong>結果が出る</strong></li>
+          <li><span>04</span><strong>学習後の変化を見る</strong></li>
+          <li><span>05</span><strong>あとから詳しく調べる</strong></li>
         </ol>
       </section>
 
@@ -46,7 +46,7 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">LEARNING PATH</p>
-            <h2 id="path-heading">初めてなら、Iから順番に</h2>
+            <h2 id="path-heading">見たい動きを選ぶ</h2>
           </div>
           <p>三つのモデルは学習信号が異なります。どれも表示専用のダミー値ではなく、画面に表示した値で実際に学習します。</p>
         </div>
@@ -64,7 +64,7 @@
                 <li>学習前後の確率・Loss比較</li>
               </ul>
             </div>
-            <a class="experiment-link" href="./glassbox-ai/?path=supervised">教師あり学習を観察する <span aria-hidden="true">→</span></a>
+            <a class="experiment-link" href="./glassbox-ai/?path=auto">Iを自動で見る <span aria-hidden="true">→</span></a>
           </article>
 
           <article class="experiment language" aria-labelledby="language-title">
@@ -79,7 +79,7 @@
                 <li>言語モデルの学習前後比較</li>
               </ul>
             </div>
-            <a class="experiment-link" href="./glassbox-ai-ii/?path=forward">言語モデルを観察する <span aria-hidden="true">→</span></a>
+            <a class="experiment-link" href="./glassbox-ai-ii/?path=auto">IIを自動で見る <span aria-hidden="true">→</span></a>
           </article>
 
           <article class="experiment" aria-labelledby="reinforcement-title">
@@ -94,7 +94,7 @@
                 <li>報酬から全39 Parameter更新</li>
               </ul>
             </div>
-            <a class="experiment-link" href="./glassbox-ai-iii/?path=reinforcement">強化学習を観察する <span aria-hidden="true">→</span></a>
+            <a class="experiment-link" href="./glassbox-ai-iii/?path=auto">IIIを自動で見る <span aria-hidden="true">→</span></a>
           </article>
         </div>
       </section>

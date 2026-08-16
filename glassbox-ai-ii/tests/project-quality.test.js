@@ -11,12 +11,15 @@ test("初回ガイドのIDは一意でForwardとTrainingの実操作へ案内す
   assert.equal(new Set(ids).size, ids.length);
   assert.match(html, /id="guide-forward"/);
   assert.match(html, /id="guide-training"/);
-  assert.match(html, /Token → Attention → Probability/);
-  assert.match(html, /Loss → Gradient → SGD Update → 前後比較/);
-  assert.match(app, /selectTab\("playground"\)/);
-  assert.match(app, /selectTab\("training"\)/);
+  assert.match(html, /data-experience-entry/);
+  assert.match(html, /id="guide-forward"[^>]+data-experience-mode="auto"/);
+  assert.match(html, /id="guide-training"[^>]+data-experience-mode="detail"/);
+  assert.match(html, /自動で見る（おすすめ）/);
+  assert.match(html, /1ステップずつ詳しく見る/);
+  assert.match(app, /async function runBeginnerAutoObserve\(\)/);
+  assert.match(app, /await runTraining\(1\)/);
+  assert.match(app, /function showBeginnerDetail\(\)/);
   assert.match(app, /#forward-next/);
-  assert.match(app, /#train-one/);
 });
 
 test("ブラウザ成果物は外部script・stylesheetへ依存しない", async () => {

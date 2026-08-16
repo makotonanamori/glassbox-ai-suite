@@ -12,10 +12,13 @@ Glassbox AI Suiteの利用者向け変更履歴です。
 ### Added
 
 - 検証済み公開baselineと今後の変更を追跡する、このCHANGELOGを追加。
+- `docs/AUTO_OBSERVE_UX.md`へ、`ready / running / complete / detail`状態、共通DOM契約、実値一致、後続animation Phaseを記録。
 
 ### Changed
 
 - README冒頭の導線を「ブラウザですぐ試す」→「ローカルで実行する」→「開発・テストする」に再構成し、GitHub Pagesと各教材への直接linkを追加。
+- Series landingを「まず動かす → 結果を見る」入口へ変更し、I / II / IIIすべてに`自動で見る（おすすめ）`と`1ステップずつ詳しく見る`の共通二段構造を追加。
+- Iの1回教師あり学習、IIの1 Training Step、IIIの1 Episodeを、既存の実計算engineを使う1クリック観察へ接続。
 
 第三者初心者testで得られたfeedbackに基づく変更は、実装時にこの章へ追加します。将来計画は[ROADMAP.md](./ROADMAP.md)を参照してください。
 

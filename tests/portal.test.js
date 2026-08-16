@@ -11,9 +11,9 @@ test("series landing has unique IDs and three explicit learning paths", async ()
   assert.match(html, /正解との誤差から学ぶ/);
   assert.match(html, /行動の結果から学ぶ/);
   assert.match(html, /次Tokenの誤差から学ぶ/);
-  assert.match(html, /href="\.\/glassbox-ai\/\?path=supervised"/);
-  assert.match(html, /href="\.\/glassbox-ai-iii\/\?path=reinforcement"/);
-  assert.match(html, /href="\.\/glassbox-ai-ii\/\?path=forward"/);
+  assert.match(html, /href="\.\/glassbox-ai\/\?path=auto"/);
+  assert.match(html, /href="\.\/glassbox-ai-iii\/\?path=auto"/);
+  assert.match(html, /href="\.\/glassbox-ai-ii\/\?path=auto"/);
   const supervised = html.indexOf("Glassbox AI I ·");
   const language = html.indexOf("Glassbox AI II ·");
   const reinforcement = html.indexOf("Glassbox AI III ·");
@@ -64,6 +64,31 @@ test("direct path requests are handled by each first-run guide", async () => {
   assert.match(languageApp, /path/);
   assert.match(reinforcementApp, /quickStartRequest/);
   assert.match(reinforcementApp, /: 'reinforcement';/);
+});
+
+test("all applications share the real auto-observe and detail contract", async () => {
+  const [contract, neuralHtml, neuralApp, languageHtml, languageApp, reinforcementHtml, reinforcementApp] = await Promise.all([
+    readFile(new URL("../docs/AUTO_OBSERVE_UX.md", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai/src/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-ii/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-ii/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-iii/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-iii/src/app.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(contract, /スタート → 動く → 結果/);
+  assert.match(contract, /ready\|running\|complete\|detail/);
+  for (const html of [neuralHtml, languageHtml, reinforcementHtml]) {
+    assert.match(html, /data-experience-entry/);
+    assert.match(html, /data-experience-mode="auto"/);
+    assert.match(html, /data-experience-mode="detail"/);
+    assert.match(html, /自動で見る/);
+    assert.match(html, /1ステップずつ詳しく見る/);
+  }
+  assert.match(neuralApp, /async function runBeginnerAutoObserve\(\)/);
+  assert.match(neuralApp, /engine\.appendLearning\(targetIndex, learningRate\)/);
+  assert.match(languageApp, /await runTraining\(1\)/);
+  assert.match(reinforcementApp, /runRlToEnd\(\)/);
 });
 
 test("canonical responsibilities are synchronized across README and AGENTS", async () => {
@@ -179,10 +204,11 @@ test("Glassbox AI II and III have independent Windows launchers and ports", asyn
   ]);
   assert.match(languageLauncher, /\$appName = 'glassbox-ai-ii'/);
   assert.match(languageLauncher, /\[int\]\$Port = 8102/);
-  assert.match(languageLauncher, /path=forward/);
+  assert.match(languageLauncher, /path=auto/);
   assert.match(languageLauncher, /'--directory', \$appRoot/);
   assert.match(reinforcementLauncher, /\$appName = 'glassbox-ai-iii'/);
   assert.match(reinforcementLauncher, /\[int\]\$Port = 8103/);
+  assert.match(reinforcementLauncher, /path=auto/);
   assert.match(reinforcementLauncher, /'--directory', \$appRoot/);
 });
 

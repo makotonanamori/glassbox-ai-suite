@@ -13,7 +13,7 @@
     <div>
       <p class="eyebrow">TRANSPARENT LANGUAGE MODEL / LOCAL LAB</p>
       <h1>Glassbox AI <span>II</span></h1>
-      <p class="subtitle">Tokenから確率、誤差、勾配、更新まで。1層Transformerの因果鎖を実数値で観察します。</p>
+      <p class="subtitle">短い文章から次の言葉を予測し、1回の学習で結果が変わる様子を見ます。</p>
     </div>
     <div class="instrument-strip" aria-label="モデル設定">
       <label>Seed <input id="seed-input" type="number" value="42" step="1"></label>
@@ -40,17 +40,18 @@
     <button class="tab" data-tab="debug">6 Debug</button>
   </nav>
 
-  <section class="first-run-guide" aria-labelledby="first-run-heading">
+  <section class="first-run-guide" aria-labelledby="first-run-heading" data-experience-entry data-experience-state="ready">
     <div>
-      <p class="eyebrow">FIRST 2 MINUTES</p>
-      <h2 id="first-run-heading">Tokenが確率へ変わり、誤差で更新されるまで</h2>
-      <p class="microcopy">初めてならForwardから始めてください。表示値は、実際の1層Transformerが使ったTraceそのものです。</p>
+      <p class="eyebrow">FIRST: PRESS START</p>
+      <h2 id="first-run-heading">まず、動かして結果を見る</h2>
+      <p class="microcopy">説明はあとで大丈夫です。ボタンを1つ押すと、文章を使った予測と学習を1回進めます。</p>
     </div>
     <div class="first-run-actions" aria-label="初回観察コース">
-      <button id="guide-forward" type="button" class="first-run-action selected" aria-pressed="true"><strong>1 · Forwardを観察</strong><span>16段階でToken → Attention → Probability</span></button>
-      <button id="guide-training" type="button" class="first-run-action" aria-pressed="false"><strong>2 · 1回学習を観察</strong><span>Loss → Gradient → SGD Update → 前後比較</span></button>
+      <button id="guide-forward" type="button" class="first-run-action primary selected" aria-pressed="true" data-experience-mode="auto"><strong>▶ 自動で見る（おすすめ）</strong><span>実際の計算で、学習前と学習後の結果を比べます</span></button>
+      <button id="guide-training" type="button" class="first-run-action" aria-pressed="false" data-experience-mode="detail"><strong>1ステップずつ詳しく見る</strong><span>同じ計算を先頭から止めながら確認します</span></button>
     </div>
-    <p id="first-run-status" class="first-run-status" role="status" aria-live="polite">Forwardの1 / 16から開始できます。「Next」で実値を1段階ずつ進めます。</p>
+    <ol class="experience-flow" aria-label="自動で見る流れ"><li data-flow-step="start" class="active">1 スタート</li><li data-flow-step="motion">2 動く</li><li data-flow-step="result">3 結果</li></ol>
+    <p id="first-run-status" class="first-run-status" role="status" aria-live="polite">「自動で見る」を押してください。</p>
   </section>
 
   <main>

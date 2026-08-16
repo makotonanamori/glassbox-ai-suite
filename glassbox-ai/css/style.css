@@ -169,6 +169,17 @@ h1 {
   color: var(--text);
 }
 
+.header-note summary {
+  color: var(--cyan);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-weight: 650;
+}
+
+.header-note[open] summary {
+  margin-bottom: 6px;
+}
+
 .status-strip {
   display: grid;
   grid-template-columns: 150px 150px 150px minmax(250px, 1fr);
@@ -233,7 +244,7 @@ h1 {
 
 .quick-start-paths {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -266,6 +277,40 @@ h1 {
   border-color: var(--cyan);
   background: var(--cyan-soft);
   box-shadow: inset 3px 0 var(--cyan);
+}
+
+.experience-flow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.experience-flow li {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  color: var(--quiet);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: center;
+}
+
+.experience-flow li.active {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.experience-flow li.done {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+[data-experience-state="running"] [data-experience-mode="auto"] {
+  cursor: wait;
 }
 
 .quick-start-status {

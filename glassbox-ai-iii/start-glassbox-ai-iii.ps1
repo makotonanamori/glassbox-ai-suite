@@ -13,7 +13,7 @@ function Test-ExpectedApplication {
   param([int]$CandidatePort)
   try {
     $response = Invoke-WebRequest `
-      -Uri "http://127.0.0.1:$CandidatePort/index.html?app=$appName&path=reinforcement" `
+      -Uri "http://127.0.0.1:$CandidatePort/index.html?app=$appName&path=auto" `
       -UseBasicParsing `
       -TimeoutSec 1
     return $response.Content.Contains($applicationMarker)
@@ -37,7 +37,7 @@ function Test-PortAvailable {
 }
 
 if (Test-ExpectedApplication -CandidatePort $Port) {
-  $url = "http://127.0.0.1:$Port/index.html?app=$appName&path=reinforcement"
+  $url = "http://127.0.0.1:$Port/index.html?app=$appName&path=auto"
   Write-Host "Glassbox AI III is already running: $url"
   if (-not $NoBrowser) { Start-Process $url }
   exit 0
@@ -73,7 +73,7 @@ if (-not $ready) {
   throw 'Glassbox AI III server did not become ready.'
 }
 
-$url = "http://127.0.0.1:$selectedPort/index.html?app=$appName&path=reinforcement"
+$url = "http://127.0.0.1:$selectedPort/index.html?app=$appName&path=auto"
 Write-Host "Glassbox AI III: $url"
 Write-Host "Server PID: $($server.Id)"
 Write-Host "Stop with: Stop-Process -Id $($server.Id)"

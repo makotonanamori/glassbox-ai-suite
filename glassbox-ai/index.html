@@ -18,13 +18,14 @@
       <div>
         <p class="eyebrow">Transparent neural network laboratory</p>
         <h1>Glassbox AI I</h1>
-        <p class="subtitle">正解との誤差から学ぶ極小ニューラルネット実験室</p>
+        <p class="subtitle">5つの数字から予測を作り、1回の学習で結果が変わる様子を見ます。</p>
       </div>
-      <div class="header-note">
+      <details class="header-note">
+        <summary>仕組みの名前を見る</summary>
         <strong>固定構造 5 → 4 → 3</strong>
         <span>tanh / softmax / cross entropy / SGD</span>
         <span>外部API・学習済みモデル・MLライブラリ不使用</span>
-      </div>
+      </details>
     </header>
 
     <section class="status-strip" aria-label="現在の実験状態">
@@ -34,30 +35,35 @@
       <div class="status-message"><span>現在</span><strong id="status-message">初期化中</strong></div>
     </section>
 
-    <section class="quick-start" aria-labelledby="quick-start-heading">
+    <section class="quick-start" aria-labelledby="quick-start-heading" data-experience-entry data-experience-state="ready">
       <div class="quick-start-intro">
-        <p class="eyebrow">FIRST 3 MINUTES</p>
-        <h2 id="quick-start-heading">まず、学習で数字が変わる瞬間を見る</h2>
-        <p>初めてなら「誤差から学ぶ」がおすすめです。計算は自動で省略せず、既存の実値タイムラインを案内します。</p>
+        <p class="eyebrow">FIRST: PRESS START</p>
+        <h2 id="quick-start-heading">まず、動かして結果を見る</h2>
+        <p>説明はあとで大丈夫です。ボタンを1つ押すと、予測して、学習して、結果が変わるところまで進みます。</p>
       </div>
       <div class="quick-start-paths" aria-label="観察コース">
-        <button id="quick-supervised" type="button" class="quick-path selected" aria-pressed="true">
-          <span>おすすめ · 約3分</span>
-          <strong>誤差から学ぶ</strong>
-          <small>予測 → 正解との差 → 39 Parameter更新 → 前後比較</small>
+        <button id="quick-supervised" type="button" class="quick-path primary selected" aria-pressed="true" data-experience-mode="auto">
+          <span>おすすめ · 1クリック</span>
+          <strong>▶ 自動で見る</strong>
+          <small>実際の計算で、学習前と学習後の結果を比べます</small>
         </button>
         <button id="quick-reinforcement" type="button" class="quick-path" aria-pressed="false" hidden data-legacy-compatibility>
           <span>第三弾 · 別タイムライン</span>
           <strong>報酬から学ぶ</strong>
           <small>環境履歴 → 累積報酬 → 探索/活用 → 方策更新</small>
         </button>
-        <button id="quick-explore" type="button" class="quick-path" aria-pressed="false">
-          <span>自由観察</span>
-          <strong>1計算ずつ追う</strong>
-          <small>積、和、活性化、勾配を「次のステップ」で確認</small>
+        <button id="quick-explore" type="button" class="quick-path" aria-pressed="false" data-experience-mode="detail">
+          <span>結果を見たあとに</span>
+          <strong>1ステップずつ詳しく見る</strong>
+          <small>同じ計算を先頭から止めながら確認します</small>
         </button>
       </div>
-      <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite"></div>
+      <ol class="experience-flow" aria-label="自動で見る流れ">
+        <li data-flow-step="start" class="active">1 スタート</li>
+        <li data-flow-step="motion">2 動く</li>
+        <li data-flow-step="result">3 結果</li>
+      </ol>
+      <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite">「自動で見る」を押してください。</div>
     </section>
 
     <details class="curriculum-guide">

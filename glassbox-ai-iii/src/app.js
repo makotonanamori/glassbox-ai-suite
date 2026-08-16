@@ -84,6 +84,10 @@ let rlSessionStartInputs = null;
 const operationLog = new OperationLog();
 let autoTimer = null;
 let quickStartMode = requestedQuickStartModes.has(quickStartRequest) ? quickStartRequest : 'reinforcement';
+let experienceState = quickStartMode === 'explore' ? 'detail' : 'ready';
+let experienceMessage = experienceState === 'detail'
+  ? '「次のRLステップ」で、同じエピソードを止めながら確認できます。'
+  : '「自動で見る」を押してください。';
 
 function formatNumber(value) {
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';
@@ -888,49 +892,63 @@ function renderLog() {
 }
 
 function renderQuickStartGuide() {
-  const buttons = {
-    supervised: elements['quick-supervised'],
-    reinforcement: elements['quick-reinforcement'],
-    explore: elements['quick-explore'],
-  };
-  Object.entries(buttons).forEach(([mode, button]) => {
-    const selected = mode === quickStartMode;
-    button.classList.toggle('selected', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  });
+  const entry = document.querySelector('[data-experience-entry]');
+  entry.dataset.experienceState = experienceState;
+  const autoSelected = experienceState !== 'detail';
+  elements['quick-reinforcement'].classList.toggle('selected', autoSelected);
+  elements['quick-reinforcement'].setAttribute('aria-pressed', String(autoSelected));
+  elements['quick-explore'].classList.toggle('selected', !autoSelected);
+  elements['quick-explore'].setAttribute('aria-pressed', String(!autoSelected));
+  elements['quick-reinforcement'].disabled = experienceState === 'running';
+  elements['quick-explore'].disabled = experienceState === 'running';
 
-  let title;
-  let instruction;
-  if (quickStartMode === 'reinforcement') {
-    if (!rlEngine) {
-      title = '1/2 エピソードを始める';
-      instruction = '「新しいエピソード」を押します。環境履歴と報酬は、139ステップ数学タイムラインとは別に記録されます。';
-    } else if (!rlEngine.isComplete) {
-      title = '2/2 報酬から方策更新まで進める';
-      instruction = '「RLを最後まで」で、探索/活用、累積報酬、割引リターン、勾配、39 Parameter更新を順に観察します。';
-    } else {
-      title = '観察完了';
-      instruction = 'エピソード前後比較と履歴を確認できます。「新しいエピソード」で更新後の方策を続けて試せます。';
-    }
-  } else if (quickStartMode === 'explore') {
-    title = `現在 ${engine.index} / ${engine.length - 1}`;
-    instruction = engine.canGoNext
-      ? '「次のステップ」を押すたびに、実際の計算式・代入値・対象接続が1段階だけ進みます。'
-      : '現在のタイムラインは最後まで到達しました。「最初から」で同じスナップショットを遡れます。';
-  } else if (engine.current.stage === 'comparison') {
-    title = '3/3 学習前後を比較する';
-    instruction = '教師あり学習が完了しました。「学習前 / 学習後」で確率、損失、更新数、最大変更量を確認してください。';
-  } else if (engine.hasLearningTimeline) {
-    title = '3/3 Parameter更新まで進める';
-    instruction = '「最後まで実行」で、誤差逆伝播、勾配、SGD更新、更新後Forward、学習前後比較まで進みます。';
-  } else if (engine.canStartLearning) {
-    title = '2/3 正解との誤差から学習を始める';
-    instruction = '「順伝播後に学習を開始」を押すと、one-hot、Loss、勾配、Parameter更新の実値タイムラインが追加されます。';
-  } else {
-    title = '1/3 まず予測確率を作る';
-    instruction = '「最後まで実行」で、5入力からtanh、softmax、argmaxまでの順伝播を完了します。';
+  const flowState = experienceState === 'detail' ? 'ready' : experienceState;
+  const flowOrder = { ready: 0, running: 1, complete: 2 };
+  const current = flowOrder[flowState] ?? 0;
+  entry.querySelectorAll('[data-flow-step]').forEach((item, index) => {
+    item.classList.toggle('done', index < current || flowState === 'complete');
+    item.classList.toggle('active', index === current);
+  });
+  elements['quick-start-status'].textContent = experienceMessage;
+}
+
+async function runBeginnerAutoObserve() {
+  if (experienceState === 'running') return;
+  pauseAuto();
+  quickStartMode = 'reinforcement';
+  experienceState = 'running';
+  experienceMessage = '動いています。小さな世界で行動し、結果を集めています。';
+  renderQuickStartGuide();
+  await new Promise((resolve) => window.requestAnimationFrame(resolve));
+
+  try {
+    if (!startRlEpisode({ confirmDiscard: false })) throw new Error('エピソードを開始できませんでした。');
+    addLog('[自動で見る] 強化学習エピソードを開始');
+    runRlToEnd();
+    const { cumulativeReward, foods, steps } = rlEngine.summary;
+    experienceState = 'complete';
+    experienceMessage = `結果が出ました。${steps}回行動し、合計${formatSigned(cumulativeReward)}点、餌${foods}個でした。`;
+    addLog(`[自動で見る] 完了：${experienceMessage}`);
+    render();
+    elements['rl-history-chart'].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (error) {
+    experienceState = 'ready';
+    experienceMessage = `自動実行を完了できませんでした：${error.message}`;
+    render();
   }
-  elements['quick-start-status'].innerHTML = `<strong>${title}</strong>${instruction}`;
+}
+
+function showBeginnerDetail() {
+  pauseAuto();
+  quickStartMode = 'reinforcement';
+  if (!rlEngine && !startRlEpisode({ confirmDiscard: false })) return;
+  rlEngine.first();
+  experienceState = 'detail';
+  experienceMessage = '同じエピソードを先頭へ戻しました。「次のRLステップ」で1つずつ確認できます。';
+  addLog('[詳しく見る] 現在のRLタイムラインを先頭へ戻す');
+  render();
+  elements['rl-next'].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  elements['rl-next'].focus({ preventScroll: true });
 }
 
 function moveQuickStartToCurrentAction() {
@@ -1201,16 +1219,8 @@ function bindEvents() {
     renderQuickStartGuide();
     moveQuickStartToCurrentAction();
   });
-  elements['quick-reinforcement'].addEventListener('click', () => {
-    quickStartMode = 'reinforcement';
-    renderQuickStartGuide();
-    moveQuickStartToCurrentAction();
-  });
-  elements['quick-explore'].addEventListener('click', () => {
-    quickStartMode = 'explore';
-    renderQuickStartGuide();
-    moveQuickStartToCurrentAction();
-  });
+  elements['quick-reinforcement'].addEventListener('click', runBeginnerAutoObserve);
+  elements['quick-explore'].addEventListener('click', showBeginnerDetail);
 
   elements['apply-preset'].addEventListener('click', () => {
     const preset = PRESETS[elements['preset-select'].value];
