@@ -142,6 +142,13 @@ test("OSS roadmap, changelog, security workflow, and real media are published", 
   assert.match(readme, /docs\/media\/glassbox-ai-overview\.gif/);
   assert.match(readme, /ROADMAP\.md/);
   assert.match(readme, /CHANGELOG\.md/);
+  assert.match(
+    readme,
+    /## ブラウザですぐ試す[\s\S]*## ローカルで実行する[\s\S]*## 開発・テストする[\s\S]*## 実画面/,
+  );
+  assert.match(readme, /https:\/\/makotonanamori\.github\.io\/glassbox-ai-suite\/glassbox-ai-ii\//);
+  assert.match(readme, /\.\\start-glassbox-ai-suite\.cmd/);
+  assert.match(readme, /npm run check/);
   assert.match(roadmap, /Current baseline/);
   assert.match(roadmap, /Now — v1\.x OSS readiness/);
   assert.match(roadmap, /Non-goals/);

@@ -13,6 +13,10 @@ Glassbox AI Suiteの利用者向け変更履歴です。
 
 - 検証済み公開baselineと今後の変更を追跡する、このCHANGELOGを追加。
 
+### Changed
+
+- README冒頭の導線を「ブラウザですぐ試す」→「ローカルで実行する」→「開発・テストする」に再構成し、GitHub Pagesと各教材への直接linkを追加。
+
 第三者初心者testで得られたfeedbackに基づく変更は、実装時にこの章へ追加します。将来計画は[ROADMAP.md](./ROADMAP.md)を参照してください。
 
 ## [1.0.0] - 2026-08-16

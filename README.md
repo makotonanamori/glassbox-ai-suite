@@ -9,38 +9,33 @@ Glassbox AI Suiteは、AIが入力を確率へ変換し、学習信号から勾�
 
 高性能なAI製品ではありません。外部API、学習済みモデル、機械学習ライブラリ、外部CDN、遠隔測定を使わず、すべての計算を小さなVanilla JavaScript実装で実行します。
 
-- 公開教材: https://makotonanamori.github.io/glassbox-ai-suite/
 - Source: https://github.com/makotonanamori/glassbox-ai-suite
 
-## 実画面
+## ブラウザですぐ試す
 
-[![Glassbox AI Suite overview](./docs/media/glassbox-ai-overview.gif)](https://makotonanamori.github.io/glassbox-ai-suite/)
+**[Glassbox AI Suiteをブラウザですぐ試す →](https://makotonanamori.github.io/glassbox-ai-suite/)**
 
-上のGIFと以下のScreenshotは、GitHub Pagesで動作する実アプリを同一viewportで撮影したものです。説明用のダミー値や生成画像ではありません。
+ダウンロードやインストールは不要です。GitHub Pagesを開くだけで、実際の計算・可視化・学習をブラウザ内で操作できます。
 
-| Glassbox AI I | Glassbox AI II | Glassbox AI III |
-| --- | --- | --- |
-| <img src="./docs/media/glassbox-ai-i.png" alt="教師あり学習の139 stepと実数値" width="320"> | <img src="./docs/media/glassbox-ai-ii.png" alt="Transformerの16 stage Forward Trace" width="320"> | <img src="./docs/media/glassbox-ai-iii.png" alt="環境履歴とREINFORCE方策更新" width="320"> |
+初めての場合は、シリーズ共通入口から次の順番で試すことを推奨します。各教材へ直接入ることもできます。
 
-Series landingの静止画は[こちら](./docs/media/landing.png)です。
+1. **[Glassbox AI I：正解との誤差から学ぶ](https://makotonanamori.github.io/glassbox-ai-suite/glassbox-ai/)** — 5→4→3ニューラルネットの順伝播、Loss、誤差逆伝播、全39 Parameter更新
+2. **[Glassbox AI II：次Tokenの誤差から学ぶ](https://makotonanamori.github.io/glassbox-ai-suite/glassbox-ai-ii/)** — 極小TransformerのToken、Attention、Logits、次Token確率、Cross Entropy、SGD更新
+3. **[Glassbox AI III：行動の結果から学ぶ](https://makotonanamori.github.io/glassbox-ai-suite/glassbox-ai-iii/)** — 7×7環境、探索/活用、累積報酬、割引Return、REINFORCE方策更新
 
-## 最初の5分
+各入口は対象アプリの初回ガイドを表示し、次に押すボタンへfocusします。表示値は既存StepEngineまたはclone保存したForward Traceから取得し、入口用のダミー計算はありません。
 
-Windowsでは次のlauncherを実行します。
+## ローカルで実行する
+
+Windowsではrepositoryを取得後、suite rootで次のlauncherを実行します。
 
 ```powershell
 .\start-glassbox-ai-suite.cmd
 ```
 
-表示されたURLをブラウザで開くと、シリーズ共通入口が表示されます。初めての場合は次の順番を推奨します。
+表示されたURLをブラウザで開くと、シリーズ共通入口が表示されます。
 
-1. **Glassbox AI I：正解との誤差から学ぶ** — 5→4→3ニューラルネットの順伝播、Loss、誤差逆伝播、全39 Parameter更新
-2. **Glassbox AI II：次Tokenの誤差から学ぶ** — 極小TransformerのToken、Attention、Logits、次Token確率、Cross Entropy、SGD更新
-3. **Glassbox AI III：行動の結果から学ぶ** — 7×7環境、探索/活用、累積報酬、割引Return、REINFORCE方策更新
-
-各入口は対象アプリの初回ガイドへ直接移動し、次に押すボタンへfocusします。表示値は既存StepEngineまたはclone保存したForward Traceから取得し、入口用のダミー計算はありません。
-
-## 手動起動
+### Pythonで手動起動する
 
 Python 3が利用できる環境では、suite rootで次を実行できます。
 
@@ -63,6 +58,42 @@ Set-Location ..\glassbox-ai-iii
 ```
 
 既定URLはIIが`http://127.0.0.1:8102/`、IIIが`http://127.0.0.1:8103/`です。どちらか一方だけの起動も、両方の同時起動も可能です。使用中のportは停止せず、各launcherが近傍の空きportへ切り替えて実URLを表示します。
+
+## 開発・テストする
+
+Node.js 24を推奨します。外部packageのinstallは不要です。
+
+```powershell
+npm run check
+```
+
+この1コマンドで次を実行します。
+
+- Series landingのlink、ID、外部依存境界、公開対象境界、MIT License検査
+- `glassbox-ai`の構文、順伝播、逆伝播、serialization、教師あり勾配チェックとlegacy互換回帰
+- `glassbox-ai-ii`のTensor、Attention、serialization、主要Parameter勾配チェック、500 step数値安定性
+- `glassbox-ai-iii`の独立性、RL数学、snapshot、履歴、全39方策勾配チェック
+
+個別実行も可能です。
+
+```powershell
+npm run test:portal
+npm run test:neural
+npm run test:language
+npm run test:reinforcement
+```
+
+## 実画面
+
+[![Glassbox AI Suite overview](./docs/media/glassbox-ai-overview.gif)](https://makotonanamori.github.io/glassbox-ai-suite/)
+
+上のGIFと以下のScreenshotは、GitHub Pagesで動作する実アプリを同一viewportで撮影したものです。説明用のダミー値や生成画像ではありません。
+
+| Glassbox AI I | Glassbox AI II | Glassbox AI III |
+| --- | --- | --- |
+| <img src="./docs/media/glassbox-ai-i.png" alt="教師あり学習の139 stepと実数値" width="320"> | <img src="./docs/media/glassbox-ai-ii.png" alt="Transformerの16 stage Forward Trace" width="320"> | <img src="./docs/media/glassbox-ai-iii.png" alt="環境履歴とREINFORCE方策更新" width="320"> |
+
+Series landingの静止画は[こちら](./docs/media/landing.png)です。
 
 ## 収録している実験
 
@@ -101,30 +132,6 @@ Glassbox AI III : 環境遷移後の報酬と割引Return
 ```
 
 三つには「入力 → Parameter計算 → 確率 → 学習信号 → Gradient → 更新」という共通骨格があります。一方、強化学習を通常の言語モデル事前学習と同一視せず、観測事実と解釈を分離します。
-
-## テスト
-
-Node.js 24を推奨します。外部packageのinstallは不要です。
-
-```powershell
-npm run check
-```
-
-この1コマンドで次を実行します。
-
-- Series landingのlink、ID、外部依存境界、公開対象境界、MIT License検査
-- `glassbox-ai`の構文、順伝播、逆伝播、serialization、教師あり勾配チェックとlegacy互換回帰
-- `glassbox-ai-ii`のTensor、Attention、serialization、主要Parameter勾配チェック、500 step数値安定性
-- `glassbox-ai-iii`の独立性、RL数学、snapshot、履歴、全39方策勾配チェック
-
-個別実行も可能です。
-
-```powershell
-npm run test:portal
-npm run test:neural
-npm run test:language
-npm run test:reinforcement
-```
 
 ## Roadmap・変更履歴・貢献・Security
 
