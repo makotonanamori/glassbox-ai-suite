@@ -129,10 +129,11 @@ test("MIT license and unified project scripts are present", async () => {
   assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);
 });
 
-test("OSS roadmap, security workflow, and real media are published", async () => {
-  const [readme, roadmap, security, bugTemplate, featureTemplate, pullRequestTemplate] = await Promise.all([
+test("OSS roadmap, changelog, security workflow, and real media are published", async () => {
+  const [readme, roadmap, changelog, security, bugTemplate, featureTemplate, pullRequestTemplate] = await Promise.all([
     readFile(new URL("../README.md", import.meta.url), "utf8"),
     readFile(new URL("../ROADMAP.md", import.meta.url), "utf8"),
+    readFile(new URL("../CHANGELOG.md", import.meta.url), "utf8"),
     readFile(new URL("../SECURITY.md", import.meta.url), "utf8"),
     readFile(new URL("../.github/ISSUE_TEMPLATE/bug_report.yml", import.meta.url), "utf8"),
     readFile(new URL("../.github/ISSUE_TEMPLATE/feature_request.yml", import.meta.url), "utf8"),
@@ -140,9 +141,14 @@ test("OSS roadmap, security workflow, and real media are published", async () =>
   ]);
   assert.match(readme, /docs\/media\/glassbox-ai-overview\.gif/);
   assert.match(readme, /ROADMAP\.md/);
+  assert.match(readme, /CHANGELOG\.md/);
   assert.match(roadmap, /Current baseline/);
   assert.match(roadmap, /Now — v1\.x OSS readiness/);
   assert.match(roadmap, /Non-goals/);
+  assert.match(changelog, /## \[Unreleased\]/);
+  assert.match(changelog, /## \[1\.0\.0\] - 2026-08-16/);
+  assert.match(changelog, /6d0ad66/);
+  assert.match(changelog, /Git tag.*未作成/);
   assert.match(security, /Private vulnerability reporting/);
   assert.match(bugTemplate, /Security Advisory/);
   assert.match(featureTemplate, /教材上の目的/);

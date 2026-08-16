@@ -24,7 +24,8 @@
 
 ## Now — v1.x OSS readiness
 
-- [ ] 初回releaseとCHANGELOGを作成し、検証済みbaselineを固定する
+- [x] CHANGELOGを作成し、検証済み公開baselineを履歴化する
+- [ ] 初回release / tagを作成し、versioned releaseを固定する
 - [ ] 第三者が説明なしでI → II → IIIを完走する初心者user testを行う
 - [ ] Keyboardだけで主要操作とMatrix / Parameter選択を完了できるか監査する
 - [ ] 360px、標準PC幅、拡大表示でのaccessibility確認手順を文書化する

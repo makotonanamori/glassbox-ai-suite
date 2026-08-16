@@ -126,9 +126,10 @@ npm run test:language
 npm run test:reinforcement
 ```
 
-## Roadmap・貢献・Security
+## Roadmap・変更履歴・貢献・Security
 
 - [ROADMAP.md](./ROADMAP.md) — 現在のbaseline、Now / Next / Later、非目標
+- [CHANGELOG.md](./CHANGELOG.md) — 公開baselineからの利用者向け変更履歴
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — 数学、Trace、browser検証を含む変更原則
 - [Security Policy](./SECURITY.md) — 対応範囲とPrivate vulnerability reporting
 - [Bug report](https://github.com/makotonanamori/glassbox-ai-suite/issues/new?template=bug_report.yml) / [Feature request](https://github.com/makotonanamori/glassbox-ai-suite/issues/new?template=feature_request.yml)
@@ -145,6 +146,7 @@ glassbox-ai-suite/
 ├─ tests/portal.test.js
 ├─ docs/media/
 ├─ ROADMAP.md
+├─ CHANGELOG.md
 ├─ .github/workflows/ci.yml
 ├─ start-glassbox-ai-suite.cmd
 ├─ start-glassbox-ai-suite.ps1
