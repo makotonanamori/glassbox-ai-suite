@@ -1,8 +1,31 @@
 {
   "name": "glassbox-ai-suite",
   "version": "1.0.0",
+  "description": "Transparent, local-first laboratories for supervised learning, a tiny Transformer language model, and reinforcement learning.",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "homepage": "https://makotonanamori.github.io/glassbox-ai-suite/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/makotonanamori/glassbox-ai-suite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/makotonanamori/glassbox-ai-suite/issues"
+  },
+  "keywords": [
+    "machine-learning",
+    "neural-network",
+    "transformer",
+    "reinforcement-learning",
+    "visualization",
+    "education",
+    "vanilla-javascript",
+    "explainable-ai"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test:portal": "node --test tests/portal.test.js",
     "test:neural": "npm --prefix glassbox-ai run check",

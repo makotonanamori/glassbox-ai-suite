@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability report
+    url: https://github.com/makotonanamori/glassbox-ai-suite/security/advisories/new
+    about: 悪用可能な詳細は公開Issueへ書かず、Private vulnerability reportingを使用してください。
+  - name: Live educational suite
+    url: https://makotonanamori.github.io/glassbox-ai-suite/
+    about: 最新の公開版でI、II、IIIを確認できます。

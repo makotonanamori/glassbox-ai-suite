@@ -1,0 +1,63 @@
+name: Bug report
+description: 再現可能な表示・計算・操作上の不具合を報告する
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: application
+    attributes:
+      label: 対象
+      options:
+        - Series landing
+        - Glassbox AI I — Supervised Learning
+        - Glassbox AI II — Language Model
+        - Glassbox AI III — Reinforcement Learning
+        - Documentation / Repository
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 何が起きたかを簡潔に説明してください。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順
+      description: Seed、入力、選択した操作、step番号を可能な範囲で含めてください。
+      placeholder: |
+        1. Seedを42にする
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待結果と実際の結果
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 環境
+      description: OS、browser名とversion、公開版またはlocal版を記載してください。
+      placeholder: Windows 11 / Edge 140 / GitHub Pages
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 数値・Log・Screenshot
+      description: Loss、確率、報酬、Console error等。秘密情報や個人情報は含めないでください。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 確認
+      options:
+        - label: 最新の公開版またはmainで再現することを確認しました。
+          required: true
+        - label: Security上の問題ではありません。脆弱性は公開IssueではなくSecurity Advisoryから報告します。
+          required: true

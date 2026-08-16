@@ -1,11 +1,28 @@
 # Glassbox AI Suite
 
+[![CI](https://github.com/makotonanamori/glassbox-ai-suite/actions/workflows/ci.yml/badge.svg)](https://github.com/makotonanamori/glassbox-ai-suite/actions/workflows/ci.yml)
+[![Deploy GitHub Pages](https://github.com/makotonanamori/glassbox-ai-suite/actions/workflows/pages.yml/badge.svg)](https://github.com/makotonanamori/glassbox-ai-suite/actions/workflows/pages.yml)
+
+**MIT · Vanilla JavaScript · Local-first · No external AI API · No pretrained model**
+
 Glassbox AI Suiteは、AIが入力を確率へ変換し、学習信号から勾配を求め、Parameterを更新して次の出力を変えるまでを実数値で観察する教育用ブラウザ実験室です。
 
 高性能なAI製品ではありません。外部API、学習済みモデル、機械学習ライブラリ、外部CDN、遠隔測定を使わず、すべての計算を小さなVanilla JavaScript実装で実行します。
 
 - 公開教材: https://makotonanamori.github.io/glassbox-ai-suite/
 - Source: https://github.com/makotonanamori/glassbox-ai-suite
+
+## 実画面
+
+[![Glassbox AI Suite overview](./docs/media/glassbox-ai-overview.gif)](https://makotonanamori.github.io/glassbox-ai-suite/)
+
+上のGIFと以下のScreenshotは、GitHub Pagesで動作する実アプリを同一viewportで撮影したものです。説明用のダミー値や生成画像ではありません。
+
+| Glassbox AI I | Glassbox AI II | Glassbox AI III |
+| --- | --- | --- |
+| <img src="./docs/media/glassbox-ai-i.png" alt="教師あり学習の139 stepと実数値" width="320"> | <img src="./docs/media/glassbox-ai-ii.png" alt="Transformerの16 stage Forward Trace" width="320"> | <img src="./docs/media/glassbox-ai-iii.png" alt="環境履歴とREINFORCE方策更新" width="320"> |
+
+Series landingの静止画は[こちら](./docs/media/landing.png)です。
 
 ## 最初の5分
 
@@ -109,6 +126,13 @@ npm run test:language
 npm run test:reinforcement
 ```
 
+## Roadmap・貢献・Security
+
+- [ROADMAP.md](./ROADMAP.md) — 現在のbaseline、Now / Next / Later、非目標
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — 数学、Trace、browser検証を含む変更原則
+- [Security Policy](./SECURITY.md) — 対応範囲とPrivate vulnerability reporting
+- [Bug report](https://github.com/makotonanamori/glassbox-ai-suite/issues/new?template=bug_report.yml) / [Feature request](https://github.com/makotonanamori/glassbox-ai-suite/issues/new?template=feature_request.yml)
+
 ## ファイル構成
 
 ```text
@@ -119,6 +143,8 @@ glassbox-ai-suite/
 ├─ glassbox-ai-ii/
 ├─ glassbox-ai-iii/
 ├─ tests/portal.test.js
+├─ docs/media/
+├─ ROADMAP.md
 ├─ .github/workflows/ci.yml
 ├─ start-glassbox-ai-suite.cmd
 ├─ start-glassbox-ai-suite.ps1
@@ -145,7 +171,7 @@ landing、`/glassbox-ai/`、`/glassbox-ai-ii/`、`/glassbox-ai-iii/`は同じ公
 - IとIIIは同じ5→4→3構造を別々の自己完結実装として利用しますが、学習信号とcanonical UIは分離しています。
 - REINFORCEは分散が大きく、エピソード報酬が単調に改善する保証はありません。
 - 言語モデルは単純なword/punctuation tokenizer、Context 8、固定12文Corpusです。
-- GitHub Security Advisoryのprivate reporting窓口は未設定です。
+- Security上の問題はGitHub Private vulnerability reportingから非公開で報告できます。
 
 ## License
 

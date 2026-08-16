@@ -105,6 +105,10 @@ test("MIT license and unified project scripts are present", async () => {
   assert.match(license, /MIT License/);
   assert.match(license, /Glassbox AI contributors/);
   const pkg = JSON.parse(packageJson);
+  assert.equal(pkg.license, "MIT");
+  assert.equal(pkg.homepage, "https://makotonanamori.github.io/glassbox-ai-suite/");
+  assert.equal(pkg.repository.url, "git+https://github.com/makotonanamori/glassbox-ai-suite.git");
+  assert.equal(pkg.engines.node, ">=20");
   assert.match(pkg.scripts.check, /test:portal/);
   assert.match(pkg.scripts.check, /test:neural/);
   assert.match(pkg.scripts.check, /test:language/);
@@ -123,6 +127,36 @@ test("MIT license and unified project scripts are present", async () => {
   assert.match(pagesWorkflow, /actions\/configure-pages@v5/);
   assert.match(pagesWorkflow, /actions\/upload-pages-artifact@v4/);
   assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);
+});
+
+test("OSS roadmap, security workflow, and real media are published", async () => {
+  const [readme, roadmap, security, bugTemplate, featureTemplate, pullRequestTemplate] = await Promise.all([
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
+    readFile(new URL("../ROADMAP.md", import.meta.url), "utf8"),
+    readFile(new URL("../SECURITY.md", import.meta.url), "utf8"),
+    readFile(new URL("../.github/ISSUE_TEMPLATE/bug_report.yml", import.meta.url), "utf8"),
+    readFile(new URL("../.github/ISSUE_TEMPLATE/feature_request.yml", import.meta.url), "utf8"),
+    readFile(new URL("../.github/pull_request_template.md", import.meta.url), "utf8"),
+  ]);
+  assert.match(readme, /docs\/media\/glassbox-ai-overview\.gif/);
+  assert.match(readme, /ROADMAP\.md/);
+  assert.match(roadmap, /Current baseline/);
+  assert.match(roadmap, /Now — v1\.x OSS readiness/);
+  assert.match(roadmap, /Non-goals/);
+  assert.match(security, /Private vulnerability reporting/);
+  assert.match(bugTemplate, /Security Advisory/);
+  assert.match(featureTemplate, /教材上の目的/);
+  assert.match(pullRequestTemplate, /npm run check/);
+
+  const pngPaths = ["landing.png", "glassbox-ai-i.png", "glassbox-ai-ii.png", "glassbox-ai-iii.png"];
+  for (const name of pngPaths) {
+    const image = await readFile(new URL(`../docs/media/${name}`, import.meta.url));
+    assert.ok(image.length > 10000, `${name} must contain a real screenshot`);
+    assert.deepEqual([...image.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  }
+  const gif = await readFile(new URL("../docs/media/glassbox-ai-overview.gif", import.meta.url));
+  assert.ok(gif.length > 10000, "overview GIF must contain real frames");
+  assert.match(gif.subarray(0, 6).toString("ascii"), /^GIF8[79]a$/);
 });
 
 test("Glassbox AI II and III have independent Windows launchers and ports", async () => {

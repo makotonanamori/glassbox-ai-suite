@@ -1,0 +1,52 @@
+name: Feature request
+description: 観察可能性と教材価値を高める提案を行う
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: application
+    attributes:
+      label: 対象
+      options:
+        - Series landing / Shared documentation
+        - Glassbox AI I — Supervised Learning
+        - Glassbox AI II — Language Model
+        - Glassbox AI III — Reinforcement Learning
+        - New independent experiment
+    validations:
+      required: true
+  - type: textarea
+    id: learning_goal
+    attributes:
+      label: 教材上の目的
+      description: 初学者が何を観察・理解できるようになる提案かを説明してください。
+    validations:
+      required: true
+  - type: textarea
+    id: causal_chain
+    attributes:
+      label: 追跡する因果関係
+      description: 入力、Parameter、演算、中間値、出力、学習信号のどこを追うかを記載してください。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案内容
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: 数値検証方法
+      description: 手計算、有限差分、Seed再現、既存testとの比較等を記載してください。
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope確認
+      options:
+        - label: 表示用のダミー値ではなく実計算を可視化する提案です。
+          required: true
+        - label: 外部AI API、学習済みモデル、MLライブラリを必須にしません。
+          required: true
