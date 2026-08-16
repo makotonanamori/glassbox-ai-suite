@@ -82,10 +82,16 @@ test("MIT license and unified project scripts are present", async () => {
   assert.match(pkg.scripts.check, /test:language/);
   assert.match(pkg.scripts.check, /test:reinforcement/);
   assert.match(workflow, /npm run check/);
+  assert.match(workflow, /actions\/checkout@v6/);
+  assert.match(workflow, /actions\/setup-node@v6/);
+  assert.match(workflow, /node-version: 24/);
   assert.match(pagesWorkflow, /branches: \[main\]/);
   assert.match(pagesWorkflow, /pages: write/);
   assert.match(pagesWorkflow, /id-token: write/);
   assert.match(pagesWorkflow, /npm run check/);
+  assert.match(pagesWorkflow, /actions\/checkout@v6/);
+  assert.match(pagesWorkflow, /actions\/setup-node@v6/);
+  assert.match(pagesWorkflow, /node-version: 24/);
   assert.match(pagesWorkflow, /actions\/configure-pages@v5/);
   assert.match(pagesWorkflow, /actions\/upload-pages-artifact@v4/);
   assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);

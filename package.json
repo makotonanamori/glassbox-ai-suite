@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:portal": "node --test tests/*.test.js",
+    "test:portal": "node --test tests/portal.test.js",
     "test:neural": "npm --prefix glassbox-ai run check",
     "test:language": "npm --prefix glassbox-ai-ii test",
     "test:reinforcement": "npm --prefix glassbox-ai-iii run check",

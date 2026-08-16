@@ -4,6 +4,9 @@ Glassbox AI Suiteは、AIが入力を確率へ変換し、学習信号から勾�
 
 高性能なAI製品ではありません。外部API、学習済みモデル、機械学習ライブラリ、外部CDN、遠隔測定を使わず、すべての計算を小さなVanilla JavaScript実装で実行します。
 
+- 公開教材: https://makotonanamori.github.io/glassbox-ai-suite/
+- Source: https://github.com/makotonanamori/glassbox-ai-suite
+
 ## 最初の5分
 
 Windowsでは次のlauncherを実行します。
@@ -87,7 +90,7 @@ Set-Location ..\glassbox-ai-iii
 
 ## テスト
 
-Node.js 20以降を推奨します。外部packageのinstallは不要です。
+Node.js 24を推奨します。外部packageのinstallは不要です。
 
 ```powershell
 npm run check
@@ -132,7 +135,12 @@ glassbox-ai-suite/
 
 このdirectoryだけを静的hostingの公開rootとして配置します。親workspaceにはGlassbox以外の作業物があるため、親directoryを公開rootにしないでください。
 
-GitHub Pages、Cloudflare Pages、Netlify等の静的hostingでbuild commandは不要です。公開後はlanding、`/glassbox-ai/`、`/glassbox-ai-ii/`、`/glassbox-ai-iii/`の4 URLを確認してください。実際のhosting先とrepository URLは、作成後にこのREADMEへ追記します。
+GitHub Pagesでは、`main`へのpush時に全テストを実行し、成功した内容だけを専用Actions workflowから公開します。
+
+- 公開URL: https://makotonanamori.github.io/glassbox-ai-suite/
+- Repository: https://github.com/makotonanamori/glassbox-ai-suite
+
+landing、`/glassbox-ai/`、`/glassbox-ai-ii/`、`/glassbox-ai-iii/`は同じ公開rootから配信されます。ローカルではIIとIIIをそれぞれ専用launcherで独立起動できます。
 
 ## 既知の制限
 
@@ -140,7 +148,7 @@ GitHub Pages、Cloudflare Pages、Netlify等の静的hostingでbuild commandは�
 - 教師ありと強化学習は同じ5→4→3ネットワークを利用しますが、学習信号とタイムラインは別です。
 - REINFORCEは分散が大きく、エピソード報酬が単調に改善する保証はありません。
 - 言語モデルは単純なword/punctuation tokenizer、Context 8、固定12文Corpusです。
-- 公開hostingとGitHub Security Advisory窓口は、repository公開後に設定する必要があります。
+- GitHub Security Advisoryのprivate reporting窓口は未設定です。
 
 ## License
 
