@@ -73,21 +73,17 @@ Glassbox AIは、AIの内部動作を小規模なモデルとインタラクテ�
 - 必要以上に巨大なframeworkやdependencyを追加しない。
 - dependency追加が必要な場合は、教育上の利益、license、offline動作、保守負担を先に説明し、確認を得る。
 
-## 4. 現在のProject Mapping
+## 4. Canonical Project Mapping
 
-### `glassbox-ai` — Neural Network + Grid World + Reinforcement Learning
+番号、責務、公開directoryは次の一対一対応を正本とする。
 
-現在の同一アプリには次が実装されている。
+### Glassbox AI I — `glassbox-ai` — Supervised Learning
 
-- Glassbox AI I: 5入力→4中間→3出力のニューラルネット
-- 第二弾: 7×7 Grid Worldとの接続と安全教師
-- Glassbox AI III: 温度付き確率方策、探索/活用、環境報酬、割引Return、REINFORCE、全39 Parameter update
+- 5入力→4中間→3出力のニューラルネット
+- tanh、softmax、cross entropy、backpropagation、SGD
+- 教師あり139 step数学timelineと全39 Parameter update
 
-教師あり学習の139 step数学timelineと、RLの環境・報酬・方策更新timelineは別軸で維持する。
-
-Glassbox AI IIIは未実装ではない。REINFORCE方式のseed implementationが完成しており、Q-learning、価値関数、Actor-Criticは意図的な非目標である。
-
-### `glassbox-ai-ii` — Transparent Language Model
+### Glassbox AI II — `glassbox-ai-ii` — Transparent Language Model
 
 独立した1層Decoder-only Transformer言語モデルである。
 
@@ -101,6 +97,15 @@ Glassbox AI IIIは未実装ではない。REINFORCE方式のseed implementation�
 - Reverse-mode autograd、SGD、gradient clipping
 
 Language Model固有のToken、Embedding、Attention、MLP、Logits、Probability、Loss、Gradientを観察する。Reinforcement Learning実装は混在していない。
+
+### Glassbox AI III — `glassbox-ai-iii` — Reinforcement Learning
+
+- 7×7 Grid Worldと5 sensor
+- 温度付き確率方策、探索/活用、環境報酬、割引Return
+- REINFORCEと全39 Parameter update
+- 教師あり139 stepとは独立したRL因果timeline
+
+IとIIIには分離前のcodeがlegacy compatibility implementationとして一部残る。通常UIでは非canonical panelを表示せず、保存形式・数値回帰のため凍結保持する。新機能をlegacy側へ追加せず、IのRL機能はIII、IIIの教師あり機能はIを正本として変更する。
 
 ### 将来project
 
@@ -131,9 +136,9 @@ Parameter update
 次回の出力変化
 ```
 
-- 教師あり学習: 人間が指定した正解labelとの誤差
-- 強化学習: 環境遷移後に得たRewardと割引Return
-- Language Model: 実際に次に現れたTokenとの予測誤差
+- Glassbox AI I / 教師あり学習: 人間が指定した正解labelとの誤差
+- Glassbox AI II / Language Model: 実際に次に現れたTokenとの予測誤差
+- Glassbox AI III / 強化学習: 環境遷移後に得たRewardと割引Return
 
 共通骨格を示しても、強化学習を生成AIの通常の事前学習そのものとは説明しない。Transformer言語モデルとRLは、観察対象と学習信号を分ける。
 
@@ -256,22 +261,19 @@ Browser demoを公開する場合は、初回表示、sample input、reset、ste
 
 ## 11. Repository Structure
 
-このsuite repositoryを公開用正本とし、二つのappは独立性を保ったsubdirectoryとして収録する。
+このsuite repositoryを公開用正本とし、三つのcanonical appは独立性を保ったsubdirectoryとして収録する。
 
 ```text
 glassbox-ai-suite/
 ├─ index.html
 ├─ AGENTS.md
 ├─ AGENTS-Glassbox.md
-├─ glassbox-ai/
-│  ├─ AGENTS.md
-│  └─ ... Neural Network / Grid World / REINFORCE
-└─ glassbox-ai-ii/
-   ├─ AGENTS.md
-   └─ ... Decoder-only Transformer
+├─ glassbox-ai/                  I / Supervised Learning
+├─ glassbox-ai-ii/               II / Language Model
+└─ glassbox-ai-iii/              III / Reinforcement Learning
 ```
 
-Series landingはnavigationだけを担当し、二つのappの数学coreやtimelineを統合しない。shared/core抽出は現在の前提ではなく、構造変更だけを目的としたrefactorは禁止する。
+Series landingはnavigationだけを担当し、三つのappの数学coreやtimelineを統合しない。shared/core抽出やlegacy compatibility codeの物理削除は、互換性を確認する独立変更とする。
 
 ## 12. License
 
@@ -315,11 +317,11 @@ OSS公開用正本としてMIT Licenseを採用済みである。新しい依存
 
 ## 15. Current Priority
 
-### Priority 1 — `glassbox-ai`の公開準備
+### Priority 1 — Glassbox AI Iの教材品質
 
 - 初見利用者が作者の説明なしで起動できる
-- 5→4→3数学timelineとRL因果timelineを混同しない
-- 起動先を`glassbox-ai-ii`と取り違えない
+- 5→4→3教師あり139 step数学timelineを正本として維持する
+- legacy Grid World / RL panelへ新機能を追加しない
 - Error handling、accessibility、documentation、test、reproducibilityを維持する
 - MIT Licenseと第三者素材境界を維持する
 
@@ -330,9 +332,15 @@ OSS公開用正本としてMIT Licenseを採用済みである。新しい依存
 - Language ModelとRLの説明を混同しない
 - Corpus、Tokenizer、Context 8という単純化を明示する
 
-### Priority 3 — Series navigation
+### Priority 3 — Glassbox AI IIIの教材品質
 
-二つのアプリを一つへ統合せず、series landingから学習順序と学習信号の違いを案内する。
+- 環境履歴、報酬、探索/活用、REINFORCE因果timelineを正本として維持する
+- legacy教師ありpanelへ新機能を追加しない
+- I、II、IIIの学習信号を混同しない
+
+### Priority 4 — Series navigation
+
+三つのアプリを統合せず、series landingからI → II → IIIの番号順と学習信号の違いを案内する。
 
 ## 16. Immediate Task Policy
 
@@ -340,8 +348,8 @@ OSS公開用正本としてMIT Licenseを採用済みである。新しい依存
 
 特に、次を現状確認なしに開始しない。
 
-- Glassbox AI IIからRLを分離する作業
-- `glassbox-ai`から第三弾を別repositoryへ移す作業
+- I / IIIのlegacy compatibility codeを物理削除する作業
+- public directory名またはI / II / III番号を変更する作業
 - shared/coreを新設する作業
 - folder名またはpublic URLを変更する作業
 - LICENSEを追加する作業

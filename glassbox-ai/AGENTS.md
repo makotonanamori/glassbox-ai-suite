@@ -1,4 +1,4 @@
-# Glassbox AI I / III — Project Instructions
+# Glassbox AI I — Project Instructions
 
 このprojectで作業する前に、次をすべて読むこと。
 
@@ -8,21 +8,20 @@
 
 ## 現在のscope
 
-このfolderは単一のローカルbrowserアプリとして、次を含む。
+このfolderのcanonicalな責務は教師あり学習である。
 
 - 5入力→4中間→3出力のニューラルネット
 - tanh、softmax、cross entropy、全39 Parameterのbackpropagation / SGD
-- 7×7 Grid World、安全教師、5 sensor
-- 温度付き確率方策、探索/活用、Reward、割引Return、REINFORCE
-- 教師あり139 step数学timelineとは独立したRL因果timeline
-- Network state JSON、RL history JSON、操作log
+- 教師あり139 step数学timeline
+- Network state JSON、操作log
 
-第三弾は実装済みである。Q-learning、価値関数、Actor-Critic、経験再生へ無断で置き換えない。
+分離前の7×7 Grid World / REINFORCE code、DOM、testはlegacy compatibility layerとして凍結保持する。通常UIでは非表示であり、新しいRL機能はGlassbox AI IIIへ実装する。
 
 ## 変更境界
 
 - `glassbox-ai-ii`のTransformer codeをこのprojectへ移さない。
-- 教師あり139 stepとRL timelineを一つのtimelineへ統合しない。
+- legacy Grid World / RL panelをcanonical UIへ戻さない。
+- legacy codeを物理削除する場合は保存JSON、snapshot、全39勾配checkの移行案を先に示す。
 - UI表示は実計算値または完全snapshotだけを使用する。
 - 前後step移動でworld、network、部分updateのstateを一致させる。
 - 既存39 Parameterの命名、shape、保存形式を変更する場合は互換性案を先に示す。
@@ -51,7 +50,8 @@ UI変更時は専用起動経路を使用する。
 
 - 初見利用者向けQuick Startと教材導線
 - 既存数学の正確性、再現性、accessibility
-- Iの教師あり学習とIIIの環境報酬学習の違いを明示
+- Iの教師あり学習を単独で理解できる導線
+- IIの次Token学習、IIIの環境報酬学習との違いを明示
 - MIT Licenseと第三者素材境界の維持
 
-大規模なfolder再編、RL分離、shared core新設は独立提案とし、承認前に開始しない。
+legacy code削除、shared core新設、public path変更は独立提案とし、承認前に開始しない。

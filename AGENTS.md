@@ -8,11 +8,13 @@
 
 ## Repository境界
 
-- `glassbox-ai`は教師ありニューラルネットと、互換維持用の従来Grid World / REINFORCE画面を含む。
-- `glassbox-ai-ii`は独立したDecoder-only Transformerで、RLを含まない。
-- `glassbox-ai-iii`は独立したGrid World / REINFORCE実験で、他appをruntime参照しない。
+- Glassbox AI I = `glassbox-ai` = 教師あり5→4→3ニューラルネットと139 step数学timeline。
+- Glassbox AI II = `glassbox-ai-ii` = Decoder-only Transformer言語モデルと16 stage Forward Trace。
+- Glassbox AI III = `glassbox-ai-iii` = Grid World、環境報酬、REINFORCE専用timeline。
+- I / IIIに残る分離前の重複実装はlegacy compatibility layerである。通常UIでは隠し、新機能の正本にしない。
 - 三つのappを一つのmodelやtimelineへ統合しない。
 - Series landingはnavigationだけを担当し、表示用model計算を持たない。
+- Series landingの順序と番号はI → II → IIIに固定する。
 - 外部API、学習済みmodel、ML library、外部CDN、telemetryを追加しない。
 
 ## 変更と検証

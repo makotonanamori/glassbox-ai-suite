@@ -14,6 +14,10 @@ test("series landing has unique IDs and three explicit learning paths", async ()
   assert.match(html, /href="\.\/glassbox-ai\/\?path=supervised"/);
   assert.match(html, /href="\.\/glassbox-ai-iii\/\?path=reinforcement"/);
   assert.match(html, /href="\.\/glassbox-ai-ii\/\?path=forward"/);
+  const supervised = html.indexOf("Glassbox AI I ·");
+  const language = html.indexOf("Glassbox AI II ·");
+  const reinforcement = html.indexOf("Glassbox AI III ·");
+  assert.ok(supervised < language && language < reinforcement, "landing order must be I → II → III");
 });
 
 test("landing and applications have no external script or stylesheet dependency", async () => {
@@ -40,22 +44,46 @@ test("all landing targets and application identities exist", async () => {
     readFile(new URL("../glassbox-ai-iii/index.html", import.meta.url), "utf8"),
   ]);
   assert.match(neural, /application-name" content="glassbox-ai"/);
+  assert.match(neural, /<title>Glassbox AI I/);
   assert.match(language, /application-name" content="glassbox-ai-ii"/);
+  assert.match(language, /<title>Glassbox AI II/);
   assert.match(reinforcement, /application-name" content="glassbox-ai-iii"/);
+  assert.match(reinforcement, /<title>Glassbox AI III/);
 });
 
 test("direct path requests are handled by each first-run guide", async () => {
-  const [neuralApp, languageApp, reinforcementApp] = await Promise.all([
+  const [neuralHtml, neuralApp, languageApp, reinforcementApp] = await Promise.all([
+    readFile(new URL("../glassbox-ai/index.html", import.meta.url), "utf8"),
     readFile(new URL("../glassbox-ai/src/app.js", import.meta.url), "utf8"),
     readFile(new URL("../glassbox-ai-ii/js/app.js", import.meta.url), "utf8"),
     readFile(new URL("../glassbox-ai-iii/src/app.js", import.meta.url), "utf8"),
   ]);
   assert.match(neuralApp, /quickStartRequest/);
-  assert.match(neuralApp, /reinforcement/);
+  assert.match(neuralHtml, /location\.replace\('\.\.\/glassbox-ai-iii\/\?path=reinforcement'\)/);
   assert.match(languageApp, /firstRunRequest/);
   assert.match(languageApp, /path/);
   assert.match(reinforcementApp, /quickStartRequest/);
   assert.match(reinforcementApp, /: 'reinforcement';/);
+});
+
+test("canonical responsibilities are synchronized across README and AGENTS", async () => {
+  const [readme, sharedAgents, repoAgents, neuralAgents, languageAgents, reinforcementAgents] = await Promise.all([
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
+    readFile(new URL("../AGENTS-Glassbox.md", import.meta.url), "utf8"),
+    readFile(new URL("../AGENTS.md", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai/AGENTS.md", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-ii/AGENTS.md", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-iii/AGENTS.md", import.meta.url), "utf8"),
+  ]);
+  for (const text of [readme, sharedAgents, repoAgents]) {
+    assert.match(text, /Glassbox AI I/);
+    assert.match(text, /Glassbox AI II/);
+    assert.match(text, /Glassbox AI III/);
+  }
+  assert.match(neuralAgents, /canonicalな責務は教師あり学習/);
+  assert.match(languageAgents, /canonical実装/);
+  assert.match(reinforcementAgents, /canonical実装/);
+  assert.match(sharedAgents, /I → II → III/);
 });
 
 test("public suite contains only Glassbox project entries", async () => {

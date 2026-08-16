@@ -4,6 +4,8 @@
 
 これは実際の大規模言語モデルそのものではなく、Transformer型autoregressive language modelの主要機構を、人間が観察可能な規模へ縮小したモデルです。性能よりも「この数値がどの入力・Parameter・演算から来たか」を追跡できることを優先しています。
 
+Glassbox AI IIのcanonicalな責務は次Token予測とTransformer内部Traceです。教師あり5→4→3ネットワークは[Glassbox AI I](../glassbox-ai/)、環境報酬から学ぶ強化学習は[Glassbox AI III](../glassbox-ai-iii/)が担当します。
+
 ## 起動方法
 
 Windows PowerShellでこのフォルダへ移動し、専用launcherを実行します。

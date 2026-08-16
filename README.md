@@ -17,9 +17,9 @@ Windowsでは次のlauncherを実行します。
 
 表示されたURLをブラウザで開くと、シリーズ共通入口が表示されます。初めての場合は次の順番を推奨します。
 
-1. **正解との誤差から学ぶ** — 5→4→3ニューラルネットの順伝播、Loss、誤差逆伝播、全39 Parameter更新
-2. **行動の結果から学ぶ** — 7×7環境、探索/活用、累積報酬、割引Return、REINFORCE方策更新
-3. **次Tokenの誤差から学ぶ** — 極小TransformerのToken、Attention、Logits、次Token確率、Cross Entropy、SGD更新
+1. **Glassbox AI I：正解との誤差から学ぶ** — 5→4→3ニューラルネットの順伝播、Loss、誤差逆伝播、全39 Parameter更新
+2. **Glassbox AI II：次Tokenの誤差から学ぶ** — 極小TransformerのToken、Attention、Logits、次Token確率、Cross Entropy、SGD更新
+3. **Glassbox AI III：行動の結果から学ぶ** — 7×7環境、探索/活用、累積報酬、割引Return、REINFORCE方策更新
 
 各入口は対象アプリの初回ガイドへ直接移動し、次に押すボタンへfocusします。表示値は既存StepEngineまたはclone保存したForward Traceから取得し、入口用のダミー計算はありません。
 
@@ -49,19 +49,16 @@ Set-Location ..\glassbox-ai-iii
 
 ## 収録している実験
 
-### `glassbox-ai`
+### Glassbox AI I — `glassbox-ai`
 
 - 5入力→4中間→3出力
 - tanh、softmax、cross entropy、SGD
 - 教師あり139ステップ数学タイムライン
-- 7×7 Grid Worldと安全教師
-- エピソード、環境履歴、探索/活用、累積報酬
-- REINFORCEと全39 Parameter方策更新
-- JSON保存、RL履歴Export、Seed再現、全39勾配チェック
+- JSON保存、Seed再現、全39勾配チェック
 
-このdirectoryは既存URL互換のため従来III画面を保持します。第三弾の独立した公開・起動単位は`glassbox-ai-iii`です。
+このdirectoryのcanonicalな責務は教師あり学習です。分離前のGrid World / REINFORCE実装は保存形式と回帰検証の互換層として内部に凍結保持しますが、通常UIとシリーズ導線には表示しません。
 
-### `glassbox-ai-ii`
+### Glassbox AI II — `glassbox-ai-ii`
 
 - Context 8、`d_model=8`、2 Attention heads、1 Transformer block
 - Learned Token / Position embedding、Pre-LayerNorm、GELU、Residual
@@ -70,7 +67,7 @@ Set-Location ..\glassbox-ai-iii
 - 16段階Forward Trace、Attention Inspector、Training、Generation、Snapshot
 - JSON保存、Seed再現、有限差分Gradient Check
 
-### `glassbox-ai-iii`
+### Glassbox AI III — `glassbox-ai-iii`
 
 - IIを起動せず動作する独立した静的browser app
 - 7×7 Grid World、5 sensor、温度付き確率方策
@@ -81,9 +78,9 @@ Set-Location ..\glassbox-ai-iii
 ## 三つの学習信号
 
 ```text
-教師あり学習   : 人が指定した正解ラベルとの誤差
-強化学習       : 環境遷移後の報酬と割引Return
-言語モデル学習 : 実際に次に現れたTokenとの予測誤差
+Glassbox AI I   : 人が指定した正解ラベルとの誤差
+Glassbox AI II  : 実際に次に現れたTokenとの予測誤差
+Glassbox AI III : 環境遷移後の報酬と割引Return
 ```
 
 三つには「入力 → Parameter計算 → 確率 → 学習信号 → Gradient → 更新」という共通骨格があります。一方、強化学習を通常の言語モデル事前学習と同一視せず、観測事実と解釈を分離します。
@@ -99,7 +96,7 @@ npm run check
 この1コマンドで次を実行します。
 
 - Series landingのlink、ID、外部依存境界、公開対象境界、MIT License検査
-- `glassbox-ai`の構文、順伝播、逆伝播、serialization、教師あり・REINFORCE勾配チェック
+- `glassbox-ai`の構文、順伝播、逆伝播、serialization、教師あり勾配チェックとlegacy互換回帰
 - `glassbox-ai-ii`のTensor、Attention、serialization、主要Parameter勾配チェック、500 step数値安定性
 - `glassbox-ai-iii`の独立性、RL数学、snapshot、履歴、全39方策勾配チェック
 
@@ -145,7 +142,7 @@ landing、`/glassbox-ai/`、`/glassbox-ai-ii/`、`/glassbox-ai-iii/`は同じ公
 ## 既知の制限
 
 - 実用AIや大規模言語モデルではなく、原理を観察する固定小型モデルです。
-- 教師ありと強化学習は同じ5→4→3ネットワークを利用しますが、学習信号とタイムラインは別です。
+- IとIIIは同じ5→4→3構造を別々の自己完結実装として利用しますが、学習信号とcanonical UIは分離しています。
 - REINFORCEは分散が大きく、エピソード報酬が単調に改善する保証はありません。
 - 言語モデルは単純なword/punctuation tokenizer、Context 8、固定12文Corpusです。
 - GitHub Security Advisoryのprivate reporting窓口は未設定です。

@@ -22,6 +22,8 @@ test('Glassbox AI III has its own application identity and RL-first entry', asyn
   ]);
   assert.match(html, /application-name" content="glassbox-ai-iii"/);
   assert.match(html, /<title>Glassbox AI III/);
+  assert.match(html, /環境履歴、報酬、REINFORCE方策更新/);
+  assert.match(html, /data-legacy-compatibility/);
   assert.match(app, /: 'reinforcement';/);
 });
 

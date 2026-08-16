@@ -46,16 +46,16 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">LEARNING PATH</p>
-            <h2 id="path-heading">初めてなら、1から順番に</h2>
+            <h2 id="path-heading">初めてなら、Iから順番に</h2>
           </div>
           <p>三つのモデルは学習信号が異なります。どれも表示専用のダミー値ではなく、画面に表示した値で実際に学習します。</p>
         </div>
 
         <div class="experiment-list">
           <article class="experiment" aria-labelledby="supervised-title">
-            <div class="experiment-index"><span>01</span><small>約3分</small></div>
+            <div class="experiment-index"><span>I</span><small>約3分</small></div>
             <div class="experiment-content">
-              <p class="signal-label">学習信号：人が指定する正解</p>
+              <p class="signal-label">Glassbox AI I · 学習信号：人が指定する正解</p>
               <h3 id="supervised-title">正解との誤差から学ぶ</h3>
               <p>5→4→3のニューラルネットで、入力、重み付き和、softmax、Loss、全39 Parameterの更新を一計算ずつ確認します。</p>
               <ul>
@@ -67,25 +67,10 @@
             <a class="experiment-link" href="./glassbox-ai/?path=supervised">教師あり学習を観察する <span aria-hidden="true">→</span></a>
           </article>
 
-          <article class="experiment" aria-labelledby="reinforcement-title">
-            <div class="experiment-index"><span>02</span><small>約4分</small></div>
-            <div class="experiment-content">
-              <p class="signal-label">学習信号：環境から得る報酬</p>
-              <h3 id="reinforcement-title">行動の結果から学ぶ</h3>
-              <p>7×7環境で、観測、確率的行動、環境遷移、累積報酬、割引Return、REINFORCE方策更新を別タイムラインで追跡します。</p>
-              <ul>
-                <li>環境履歴とエピソード</li>
-                <li>探索と活用</li>
-                <li>報酬から全39 Parameter更新</li>
-              </ul>
-            </div>
-            <a class="experiment-link" href="./glassbox-ai-iii/?path=reinforcement">強化学習を観察する <span aria-hidden="true">→</span></a>
-          </article>
-
           <article class="experiment language" aria-labelledby="language-title">
-            <div class="experiment-index"><span>03</span><small>約3分</small></div>
+            <div class="experiment-index"><span>II</span><small>約3分</small></div>
             <div class="experiment-content">
-              <p class="signal-label">学習信号：実際に次に現れたToken</p>
+              <p class="signal-label">Glassbox AI II · 学習信号：実際に次に現れたToken</p>
               <h3 id="language-title">次Tokenの誤差から学ぶ</h3>
               <p>極小Transformerで、Token、Embedding、2-Head Attention、Logits、次Token確率、Cross Entropy、SGD更新を観察します。</p>
               <ul>
@@ -95,6 +80,21 @@
               </ul>
             </div>
             <a class="experiment-link" href="./glassbox-ai-ii/?path=forward">言語モデルを観察する <span aria-hidden="true">→</span></a>
+          </article>
+
+          <article class="experiment" aria-labelledby="reinforcement-title">
+            <div class="experiment-index"><span>III</span><small>約4分</small></div>
+            <div class="experiment-content">
+              <p class="signal-label">Glassbox AI III · 学習信号：環境から得る報酬</p>
+              <h3 id="reinforcement-title">行動の結果から学ぶ</h3>
+              <p>7×7環境で、観測、確率的行動、環境遷移、累積報酬、割引Return、REINFORCE方策更新を別タイムラインで追跡します。</p>
+              <ul>
+                <li>環境履歴とエピソード</li>
+                <li>探索と活用</li>
+                <li>報酬から全39 Parameter更新</li>
+              </ul>
+            </div>
+            <a class="experiment-link" href="./glassbox-ai-iii/?path=reinforcement">強化学習を観察する <span aria-hidden="true">→</span></a>
           </article>
         </div>
       </section>

@@ -22,7 +22,7 @@
       </div>
     </header>
 
-    <section class="status-strip" aria-label="現在の実験状態">
+    <section class="status-strip" aria-label="現在の実験状態" hidden data-legacy-compatibility>
       <div><span>フェーズ</span><strong id="phase-value">準備</strong></div>
       <div><span>ステップ</span><strong id="step-value">0 / 0</strong></div>
       <div><span>学習回数</span><strong id="learning-count">0</strong></div>
@@ -36,7 +36,7 @@
         <p>「新しいエピソード」から、観測、探索・活用、環境遷移、累積報酬、方策勾配、39 Parameter更新を実値で追跡します。</p>
       </div>
       <div class="quick-start-paths" aria-label="観察コース">
-        <button id="quick-supervised" type="button" class="quick-path" aria-pressed="false">
+        <button id="quick-supervised" type="button" class="quick-path" aria-pressed="false" hidden data-legacy-compatibility>
           <span>関連実験</span>
           <strong>誤差から学ぶ</strong>
           <small>予測 → 正解との差 → 39 Parameter更新 → 前後比較</small>
@@ -46,7 +46,7 @@
           <strong>報酬から学ぶ</strong>
           <small>環境履歴 → 累積報酬 → 探索/活用 → 方策更新</small>
         </button>
-        <button id="quick-explore" type="button" class="quick-path" aria-pressed="false">
+        <button id="quick-explore" type="button" class="quick-path" aria-pressed="false" hidden data-legacy-compatibility>
           <span>自由観察</span>
           <strong>1計算ずつ追う</strong>
           <small>積、和、活性化、勾配を「次のステップ」で確認</small>
@@ -63,16 +63,16 @@
           <span>入力を数値へ変換 → Parameterで計算 → 確率 → 学習信号 → 勾配 → 更新</span>
         </div>
         <div>
-          <strong>第一弾：教師あり学習</strong>
+          <strong>Glassbox AI I：教師あり学習</strong>
           <span>人が指定した正解ラベルと予測の差から更新します。</span>
-        </div>
-        <div>
-          <strong>第三弾：強化学習</strong>
-          <span>環境から得た報酬を、実際に選んだ行動の方策更新へ戻します。</span>
         </div>
         <div>
           <strong>Glassbox AI II：言語モデル</strong>
           <span>文章中の次Tokenを教師にしてTransformerを更新します。生成AIの事前学習は主にこちらの系統です。</span>
+        </div>
+        <div>
+          <strong>Glassbox AI III：強化学習</strong>
+          <span>環境から得た報酬を、実際に選んだ行動の方策更新へ戻します。</span>
         </div>
       </div>
       <p>強化学習だけが生成AIの仕組みではありません。三つの実験は学習信号が異なりますが、数値計算と勾配更新という共通骨格を持ちます。</p>
@@ -83,24 +83,24 @@
         <div class="panel-heading">
           <div>
             <p class="panel-index">01</p>
-            <h2 id="experiment-heading">実験条件</h2>
+            <h2 id="experiment-heading">方策ネットワーク設定</h2>
           </div>
-          <span class="panel-kicker">入力と再現性</span>
+          <span class="panel-kicker">Seedと表示精度</span>
         </div>
 
         <div class="control-stack">
-          <label class="field-label" for="preset-select">入力プリセット</label>
-          <div class="inline-control">
+          <label class="field-label" for="preset-select" hidden data-legacy-compatibility>入力プリセット</label>
+          <div class="inline-control" hidden data-legacy-compatibility>
             <select id="preset-select"></select>
             <button id="apply-preset" type="button">適用</button>
           </div>
-          <p class="microcopy">プリセットは入力と正解だけを変更します。重みは学習済み状態へ変えません。</p>
+          <p class="microcopy" hidden data-legacy-compatibility>プリセットは入力と正解だけを変更します。重みは学習済み状態へ変えません。</p>
 
           <label class="field-label" for="seed-input">重み初期化シード</label>
           <input id="seed-input" type="text" value="glassbox-1" spellcheck="false">
 
           <div class="two-column-fields">
-            <label>
+            <label hidden data-legacy-compatibility>
               <span class="field-label">学習率 η</span>
               <input id="learning-rate" type="number" value="0.1" min="0.000001" step="0.01">
             </label>
@@ -113,11 +113,11 @@
               </select>
             </label>
           </div>
-          <p class="microcopy">表示だけを丸めます。内部計算には丸め前の倍精度値を使います。</p>
+          <p class="microcopy">同じ重み初期化SeedとRL Seedから同じ実験を再現します。丸めは表示時だけです。</p>
         </div>
       </section>
 
-      <section class="panel inputs-panel" aria-labelledby="inputs-heading">
+      <section class="panel inputs-panel" aria-labelledby="inputs-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">02</p>
@@ -128,7 +128,7 @@
         <div id="input-controls" class="input-controls"></div>
       </section>
 
-      <section class="panel grid-world-panel span-full" aria-labelledby="grid-world-heading">
+      <section class="panel grid-world-panel span-full" aria-labelledby="grid-world-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">02B</p>
@@ -427,7 +427,7 @@
         </div>
       </section>
 
-      <section class="panel step-panel" aria-labelledby="step-heading">
+      <section class="panel step-panel" aria-labelledby="step-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">04</p>
@@ -469,7 +469,7 @@
         </aside>
       </section>
 
-      <section class="panel learning-panel" aria-labelledby="learning-heading">
+      <section class="panel learning-panel" aria-labelledby="learning-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">05</p>
@@ -488,7 +488,7 @@
         <div id="comparison" class="comparison empty"></div>
       </section>
 
-      <section class="panel parameter-panel span-full" aria-labelledby="parameter-heading">
+      <section class="panel parameter-panel span-full" aria-labelledby="parameter-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">06</p>
@@ -573,7 +573,7 @@
     </main>
 
     <footer>
-      <p>Glassbox AI v3 — 固定5-4-3方策ネットワークのREINFORCE更新まで追跡する透明な観察装置です。</p>
+      <p>Glassbox AI III — 環境履歴、報酬、REINFORCE方策更新を別軸で追跡する透明な強化学習実験室です。</p>
     </footer>
 
     <script type="module" src="./src/app.js"></script>

@@ -21,6 +21,10 @@
   --sans: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 * {
   box-sizing: border-box;
 }

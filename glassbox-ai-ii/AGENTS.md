@@ -18,7 +18,7 @@
 - Reverse-mode autograd、cross entropy、SGD、global gradient clipping
 - 16 stage Forward Trace、Attention inspector、Training、Generation、Snapshot、JSON
 
-Reinforcement Learning codeは混在していない。「IIからRLを分離する」を既定taskとして開始しない。
+このfolderがGlassbox AI IIのcanonical実装である。Reinforcement Learning codeは混在させず、番号IIを別の責務へ転用しない。
 
 ## 変更境界
 

@@ -8,22 +8,23 @@
 
 ## 現在のscope
 
-このfolderはGlassbox AI IIIを単独起動できる自己完結browserアプリとして、次を含む。
+このfolderはGlassbox AI IIIのcanonical実装であり、単独起動できる自己完結browserアプリとして次を含む。
 
 - 5入力→4中間→3出力のニューラルネット
-- tanh、softmax、cross entropy、全39 Parameterのbackpropagation / SGD
-- 7×7 Grid World、安全教師、5 sensor
+- tanh、softmax、全39 Parameterの方策勾配 / SGD
+- 7×7 Grid World、5 sensor
 - 温度付き確率方策、探索/活用、Reward、割引Return、REINFORCE
-- 教師あり139 step数学timelineとは独立したRL因果timeline
+- RL専用因果timeline
 - Network state JSON、RL history JSON、操作log
 
-第三弾は実装済みである。`../glassbox-ai`と`../glassbox-ai-ii`をruntime参照しない。Q-learning、価値関数、Actor-Critic、経験再生へ無断で置き換えない。
+分離前の教師ありcode、DOM、testはlegacy compatibility layerとして凍結保持し、通常UIでは非表示にする。`../glassbox-ai`と`../glassbox-ai-ii`をruntime参照しない。Q-learning、価値関数、Actor-Critic、経験再生へ無断で置き換えない。
 
 ## 変更境界
 
 - `glassbox-ai-ii`のTransformer codeをこのprojectへ移さない。
 - sibling appのJS、CSS、assetを相対importしない。IIIだけをHTTP rootにして動く状態を維持する。
-- 教師あり139 stepとRL timelineを一つのtimelineへ統合しない。
+- legacy教師ありpanelをcanonical UIへ戻さない。
+- legacy codeを物理削除する場合は保存JSON、snapshot、全39勾配checkの移行案を先に示す。
 - UI表示は実計算値または完全snapshotだけを使用する。
 - 前後step移動でworld、network、部分updateのstateを一致させる。
 - 既存39 Parameterの命名、shape、保存形式を変更する場合は互換性案を先に示す。

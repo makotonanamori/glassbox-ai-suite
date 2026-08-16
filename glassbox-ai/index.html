@@ -4,16 +4,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="application-name" content="glassbox-ai">
-    <meta name="description" content="ニューラルネットワークの内部計算、7×7環境、REINFORCE方策勾配を数値で観察するローカル完結型の極小AI実験室。">
-    <title>Glassbox AI — 内部動作を観察できる極小AI実験室</title>
+    <meta name="description" content="5→4→3ニューラルネットワークの順伝播、損失、誤差逆伝播、全39 Parameter更新を数値で観察するGlassbox AI I。">
+    <title>Glassbox AI I — Transparent Supervised Learning Lab</title>
     <link rel="stylesheet" href="./css/style.css">
+    <script>
+      if (new URLSearchParams(location.search).get('path') === 'reinforcement' && /\/glassbox-ai\/(?:index\.html)?$/.test(location.pathname)) {
+        location.replace('../glassbox-ai-iii/?path=reinforcement');
+      }
+    </script>
   </head>
   <body>
     <header class="site-header">
       <div>
         <p class="eyebrow">Transparent neural network laboratory</p>
-        <h1>Glassbox AI</h1>
-        <p class="subtitle">内部動作を観察できる極小AI実験室</p>
+        <h1>Glassbox AI I</h1>
+        <p class="subtitle">正解との誤差から学ぶ極小ニューラルネット実験室</p>
       </div>
       <div class="header-note">
         <strong>固定構造 5 → 4 → 3</strong>
@@ -41,7 +46,7 @@
           <strong>誤差から学ぶ</strong>
           <small>予測 → 正解との差 → 39 Parameter更新 → 前後比較</small>
         </button>
-        <button id="quick-reinforcement" type="button" class="quick-path" aria-pressed="false">
+        <button id="quick-reinforcement" type="button" class="quick-path" aria-pressed="false" hidden data-legacy-compatibility>
           <span>第三弾 · 別タイムライン</span>
           <strong>報酬から学ぶ</strong>
           <small>環境履歴 → 累積報酬 → 探索/活用 → 方策更新</small>
@@ -63,16 +68,16 @@
           <span>入力を数値へ変換 → Parameterで計算 → 確率 → 学習信号 → 勾配 → 更新</span>
         </div>
         <div>
-          <strong>第一弾：教師あり学習</strong>
+          <strong>Glassbox AI I：教師あり学習</strong>
           <span>人が指定した正解ラベルと予測の差から更新します。</span>
-        </div>
-        <div>
-          <strong>第三弾：強化学習</strong>
-          <span>環境から得た報酬を、実際に選んだ行動の方策更新へ戻します。</span>
         </div>
         <div>
           <strong>Glassbox AI II：言語モデル</strong>
           <span>文章中の次Tokenを教師にしてTransformerを更新します。生成AIの事前学習は主にこちらの系統です。</span>
+        </div>
+        <div>
+          <strong>Glassbox AI III：強化学習</strong>
+          <span>環境から得た報酬を、実際に選んだ行動の方策更新へ戻します。</span>
         </div>
       </div>
       <p>強化学習だけが生成AIの仕組みではありません。三つの実験は学習信号が異なりますが、数値計算と勾配更新という共通骨格を持ちます。</p>
@@ -128,7 +133,7 @@
         <div id="input-controls" class="input-controls"></div>
       </section>
 
-      <section class="panel grid-world-panel span-full" aria-labelledby="grid-world-heading">
+      <section class="panel grid-world-panel span-full" aria-labelledby="grid-world-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">02B</p>
@@ -218,7 +223,7 @@
         </div>
       </section>
 
-      <section class="panel rl-panel span-full" aria-labelledby="rl-heading">
+      <section class="panel rl-panel span-full" aria-labelledby="rl-heading" hidden data-legacy-compatibility>
         <div class="panel-heading">
           <div>
             <p class="panel-index">02C</p>
@@ -573,7 +578,7 @@
     </main>
 
     <footer>
-      <p>Glassbox AI v3 — 固定5-4-3方策ネットワークのREINFORCE更新まで追跡する透明な観察装置です。</p>
+      <p>Glassbox AI I — 固定5→4→3ネットワークの教師あり学習を139ステップで追跡する透明な観察装置です。</p>
     </footer>
 
     <script type="module" src="./src/app.js"></script>

@@ -2,18 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('教材UIのIDは一意で、RL軸と139ステップ軸を明示する', async () => {
+test('Glassbox AI Iのcanonical UIは教師あり学習だけを通常表示する', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
-  assert.match(html, /139ステップ数学タイムラインとは別軸/);
+  assert.match(html, /<title>Glassbox AI I/);
+  assert.match(html, /id="quick-supervised"/);
+  assert.match(html, /id="quick-reinforcement"[^>]+hidden[^>]+data-legacy-compatibility/);
+  assert.match(html, /class="panel grid-world-panel span-full"[^>]+hidden[^>]+data-legacy-compatibility/);
+  assert.match(html, /class="panel rl-panel span-full"[^>]+hidden[^>]+data-legacy-compatibility/);
   assert.match(html, /id="rl-causal-rail"|class="rl-causal-rail"/);
   assert.match(html, /id="rl-export-history"/);
   assert.match(html, /生成AIの事前学習は主にこちらの系統/);
-  assert.match(html, /id="quick-supervised"/);
-  assert.match(html, /id="quick-reinforcement"/);
   assert.match(html, /id="quick-explore"/);
-  assert.match(html, /環境履歴 → 累積報酬 → 探索\/活用 → 方策更新/);
 });
 
 test('初回ガイドは既存の実計算操作へ案内する', async () => {
