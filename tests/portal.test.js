@@ -1,0 +1,115 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { access, readFile, readdir } from "node:fs/promises";
+
+const root = new URL("../", import.meta.url);
+
+test("series landing has unique IDs and three explicit learning paths", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.match(html, /正解との誤差から学ぶ/);
+  assert.match(html, /行動の結果から学ぶ/);
+  assert.match(html, /次Tokenの誤差から学ぶ/);
+  assert.match(html, /href="\.\/glassbox-ai\/\?path=supervised"/);
+  assert.match(html, /href="\.\/glassbox-ai-iii\/\?path=reinforcement"/);
+  assert.match(html, /href="\.\/glassbox-ai-ii\/\?path=forward"/);
+});
+
+test("landing and applications have no external script or stylesheet dependency", async () => {
+  const files = [
+    "../index.html",
+    "../glassbox-ai/index.html",
+    "../glassbox-ai-ii/index.html",
+    "../glassbox-ai-iii/index.html",
+  ];
+  for (const path of files) {
+    const html = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.doesNotMatch(html, /<script[^>]+src="https?:\/\//i);
+    assert.doesNotMatch(html, /<link[^>]+href="https?:\/\//i);
+  }
+});
+
+test("all landing targets and application identities exist", async () => {
+  await access(new URL("../glassbox-ai/index.html", import.meta.url));
+  await access(new URL("../glassbox-ai-ii/index.html", import.meta.url));
+  await access(new URL("../glassbox-ai-iii/index.html", import.meta.url));
+  const [neural, language, reinforcement] = await Promise.all([
+    readFile(new URL("../glassbox-ai/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-ii/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-iii/index.html", import.meta.url), "utf8"),
+  ]);
+  assert.match(neural, /application-name" content="glassbox-ai"/);
+  assert.match(language, /application-name" content="glassbox-ai-ii"/);
+  assert.match(reinforcement, /application-name" content="glassbox-ai-iii"/);
+});
+
+test("direct path requests are handled by each first-run guide", async () => {
+  const [neuralApp, languageApp, reinforcementApp] = await Promise.all([
+    readFile(new URL("../glassbox-ai/src/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-ii/js/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-iii/src/app.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(neuralApp, /quickStartRequest/);
+  assert.match(neuralApp, /reinforcement/);
+  assert.match(languageApp, /firstRunRequest/);
+  assert.match(languageApp, /path/);
+  assert.match(reinforcementApp, /quickStartRequest/);
+  assert.match(reinforcementApp, /: 'reinforcement';/);
+});
+
+test("public suite contains only Glassbox project entries", async () => {
+  const entries = await readdir(root);
+  const forbidden = ["gpt-5.4", "gpt-5.5", "lucy-mcp-server", "crash_captures", "comfyui_easyuse_captures"];
+  forbidden.forEach((name) => assert.equal(entries.includes(name), false));
+  assert.equal(entries.includes("glassbox-ai"), true);
+  assert.equal(entries.includes("glassbox-ai-ii"), true);
+  assert.equal(entries.includes("glassbox-ai-iii"), true);
+});
+
+test("MIT license and unified project scripts are present", async () => {
+  const [license, packageJson, workflow, pagesWorkflow] = await Promise.all([
+    readFile(new URL("../LICENSE", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/pages.yml", import.meta.url), "utf8"),
+  ]);
+  assert.match(license, /MIT License/);
+  assert.match(license, /Glassbox AI contributors/);
+  const pkg = JSON.parse(packageJson);
+  assert.match(pkg.scripts.check, /test:portal/);
+  assert.match(pkg.scripts.check, /test:neural/);
+  assert.match(pkg.scripts.check, /test:language/);
+  assert.match(pkg.scripts.check, /test:reinforcement/);
+  assert.match(workflow, /npm run check/);
+  assert.match(pagesWorkflow, /branches: \[main\]/);
+  assert.match(pagesWorkflow, /pages: write/);
+  assert.match(pagesWorkflow, /id-token: write/);
+  assert.match(pagesWorkflow, /npm run check/);
+  assert.match(pagesWorkflow, /actions\/configure-pages@v5/);
+  assert.match(pagesWorkflow, /actions\/upload-pages-artifact@v4/);
+  assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);
+});
+
+test("Glassbox AI II and III have independent Windows launchers and ports", async () => {
+  const [languageLauncher, reinforcementLauncher] = await Promise.all([
+    readFile(new URL("../glassbox-ai-ii/start-glassbox-ai-ii.ps1", import.meta.url), "utf8"),
+    readFile(new URL("../glassbox-ai-iii/start-glassbox-ai-iii.ps1", import.meta.url), "utf8"),
+  ]);
+  assert.match(languageLauncher, /\$appName = 'glassbox-ai-ii'/);
+  assert.match(languageLauncher, /\[int\]\$Port = 8102/);
+  assert.match(languageLauncher, /path=forward/);
+  assert.match(languageLauncher, /'--directory', \$appRoot/);
+  assert.match(reinforcementLauncher, /\$appName = 'glassbox-ai-iii'/);
+  assert.match(reinforcementLauncher, /\[int\]\$Port = 8103/);
+  assert.match(reinforcementLauncher, /'--directory', \$appRoot/);
+});
+
+test("Windows launcher binds the dedicated suite root without stopping unrelated servers", async () => {
+  const launcher = await readFile(new URL("../start-glassbox-ai-suite.ps1", import.meta.url), "utf8");
+  assert.match(launcher, /glassbox-ai-suite/);
+  assert.match(launcher, /'--directory', \$suiteRoot/);
+  assert.match(launcher, /127\.0\.0\.1/);
+  assert.match(launcher, /while \(-not \(Test-PortAvailable/);
+  assert.doesNotMatch(launcher, /Stop-Process.+CandidatePort/);
+});

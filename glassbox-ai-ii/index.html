@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="glassbox-ai-ii">
+  <meta name="description" content="小型Transformerの実計算をTokenからSGD更新まで追跡するローカル実験装置">
+  <title>Glassbox AI II — Transparent Language Model</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">TRANSPARENT LANGUAGE MODEL / LOCAL LAB</p>
+      <h1>Glassbox AI <span>II</span></h1>
+      <p class="subtitle">Tokenから確率、誤差、勾配、更新まで。1層Transformerの因果鎖を実数値で観察します。</p>
+    </div>
+    <div class="instrument-strip" aria-label="モデル設定">
+      <label>Seed <input id="seed-input" type="number" value="42" step="1"></label>
+      <label>Learning rate <input id="learning-rate" type="number" value="0.03" min="0.0001" max="1" step="0.001"></label>
+      <label>Clip norm <input id="clip-norm" type="number" value="1" min="0.01" max="100" step="0.1"></label>
+      <label>表示桁 <select id="precision"><option value="2">2</option><option value="4" selected>4</option><option value="6">6</option></select></label>
+      <button id="reinitialize" class="danger-quiet">Seedから再初期化</button>
+    </div>
+    <div class="status-strip">
+      <span id="model-status" class="status-ok">READY</span>
+      <span>Parameters <strong id="parameter-count">—</strong></span>
+      <span>Vocabulary <strong id="vocab-count">—</strong></span>
+      <span>Training step <strong id="training-step-global">0</strong></span>
+      <span id="notice" role="status" aria-live="polite">初期モデルを観察できます。</span>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="観察画面">
+    <button class="tab active" data-tab="playground">1 Playground</button>
+    <button class="tab" data-tab="attention">2 Attention</button>
+    <button class="tab" data-tab="training">3 Training</button>
+    <button class="tab" data-tab="parameters">4 Parameters</button>
+    <button class="tab" data-tab="architecture">5 Architecture</button>
+    <button class="tab" data-tab="debug">6 Debug</button>
+  </nav>
+
+  <section class="first-run-guide" aria-labelledby="first-run-heading">
+    <div>
+      <p class="eyebrow">FIRST 2 MINUTES</p>
+      <h2 id="first-run-heading">Tokenが確率へ変わり、誤差で更新されるまで</h2>
+      <p class="microcopy">初めてならForwardから始めてください。表示値は、実際の1層Transformerが使ったTraceそのものです。</p>
+    </div>
+    <div class="first-run-actions" aria-label="初回観察コース">
+      <button id="guide-forward" type="button" class="first-run-action selected" aria-pressed="true"><strong>1 · Forwardを観察</strong><span>16段階でToken → Attention → Probability</span></button>
+      <button id="guide-training" type="button" class="first-run-action" aria-pressed="false"><strong>2 · 1回学習を観察</strong><span>Loss → Gradient → SGD Update → 前後比較</span></button>
+    </div>
+    <p id="first-run-status" class="first-run-status" role="status" aria-live="polite">Forwardの1 / 16から開始できます。「Next」で実値を1段階ずつ進めます。</p>
+  </section>
+
+  <main>
+    <section id="panel-playground" class="tab-panel active">
+      <div class="workspace-grid">
+        <aside class="panel control-panel">
+          <h2>Input / Generation</h2>
+          <label for="prompt-input">Token列</label>
+          <textarea id="prompt-input" rows="3">the cat eats</textarea>
+          <p class="microcopy">単純なword/punctuation tokenizerです。実際のLLMではBPE等のsubword tokenizerが一般的ですが、ここではTransformer内部の観察を優先しています。</p>
+          <button id="prepare-forward" class="primary wide">入力を確定してForward準備</button>
+          <div class="button-row">
+            <button id="forward-previous">Previous</button>
+            <button id="forward-next">Next</button>
+            <button id="forward-run">Run Forward</button>
+            <button id="forward-reset">Reset</button>
+          </div>
+          <hr>
+          <h3>Generation</h3>
+          <label>Sampling <select id="sampling-mode"><option value="greedy">Greedy</option><option value="temperature">Temperature</option></select></label>
+          <label>Temperature <input id="temperature" type="number" min="0.05" max="5" step="0.05" value="1"></label>
+          <label>N tokens <input id="generation-count" type="number" min="1" max="32" step="1" value="5"></label>
+          <div class="button-row"><button id="generate-one">Generate One Token</button><button id="generate-many">Generate N Tokens</button></div>
+          <output id="generation-output" class="output-box">—</output>
+        </aside>
+        <div class="main-stack">
+          <section class="panel">
+            <div class="section-heading"><div><p class="eyebrow">FORWARD PIPELINE</p><h2 id="stage-title">入力待ち</h2></div><span id="stage-counter" class="badge">0 / 16</span></div>
+            <p id="stage-description" class="stage-description">入力を確定すると、実際のForward Traceを16段階で観察できます。</p>
+            <div id="pipeline" class="pipeline"></div>
+          </section>
+          <section class="panel">
+            <h2>Tokens</h2>
+            <div id="token-cells" class="token-cells empty">Forwardを準備してください。</div>
+          </section>
+          <section class="panel stage-panel">
+            <div class="section-heading"><h2>Current Stage Data</h2><span id="selected-token-label" class="badge">Token —</span></div>
+            <div id="stage-view" class="stage-view empty">段階を選ぶと、対応する実数値が表示されます。</div>
+          </section>
+        </div>
+        <aside class="panel inspector-panel">
+          <h2>Prediction</h2>
+          <div id="prediction-view" class="empty">Probability stageまで進むと表示します。</div>
+          <hr>
+          <h2>数字を追う</h2>
+          <div id="token-trace" class="empty">Tokenを選択してください。</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="panel-attention" class="tab-panel">
+      <div class="attention-layout">
+        <section class="panel">
+          <div class="section-heading"><div><p class="eyebrow">CAUSAL SELF ATTENTION</p><h2>Attention Matrix</h2></div><div class="inline-controls"><select id="attention-head"><option value="0">Head 1</option><option value="1">Head 2</option></select><select id="attention-mode"><option value="attentionWeights">Softmax Weight</option><option value="rawScores">Raw Score</option><option value="maskedScores">Masked Score</option></select></div></div>
+          <p class="microcopy">各Tokenが、それ以前のどのTokenをどれだけ参照するかを計算します。観測値だけを示し、Headの役割を意味付けしません。</p>
+          <div id="attention-matrix" class="matrix-scroll empty">PlaygroundでForwardを準備してください。</div>
+          <div class="legend"><span><i class="swatch negative"></i>負</span><span><i class="swatch zero"></i>0付近</span><span><i class="swatch positive"></i>正</span><span><i class="swatch masked"></i>MASK</span></div>
+        </section>
+        <aside class="panel">
+          <h2>Attention Cell Inspector</h2>
+          <div id="attention-inspector" class="empty">Matrixのセルを選択すると、Q・Kからweightまでを分解します。</div>
+        </aside>
+      </div>
+      <section class="panel">
+        <div class="section-heading"><h2>Head 1 / Head 2 比較</h2><span class="badge">同一入力・観測値</span></div>
+        <div id="head-comparison" class="head-comparison"></div>
+      </section>
+    </section>
+
+    <section id="panel-training" class="tab-panel">
+      <div class="training-layout">
+        <aside class="panel">
+          <h2>Training Corpus</h2>
+          <div id="corpus-view" class="corpus-view"></div>
+          <p class="microcopy">入力は`BOS + 文`、教師は`文 + EOS`です。全位置のCross Entropy平均を1例のLossとします。</p>
+        </aside>
+        <section class="panel">
+          <div class="section-heading"><div><p class="eyebrow">AUTOREGRESSIVE SGD</p><h2>Training Controls</h2></div><strong id="training-step">STEP 0</strong></div>
+          <div class="button-row training-buttons"><button id="train-one" class="primary">Train One Step</button><button data-train-count="10">Train 10</button><button data-train-count="100">Train 100</button><button id="auto-train">Auto Train</button><button id="pause-train" disabled>Pause</button></div>
+          <div id="training-flow" class="training-flow"><span>Forward</span><b>→</b><span>Loss</span><b>→</b><span>Backward</span><b>→</b><span>Gradient</span><b>→</b><span>SGD Update</span></div>
+          <div id="training-sample" class="empty">学習を実行すると、入力・教師・位置別Lossを表示します。</div>
+        </section>
+        <aside class="panel diagnostics-panel">
+          <h2>Diagnostics</h2>
+          <div id="diagnostics"></div>
+        </aside>
+      </div>
+      <div class="two-column">
+        <section class="panel"><div class="section-heading"><h2>Loss History</h2><span id="loss-summary" class="badge">—</span></div><svg id="loss-chart" viewBox="0 0 720 220" role="img" aria-label="Training loss curve"></svg></section>
+        <section class="panel"><h2>学習前 / 学習後</h2><div id="training-comparison" class="empty">Train One Step後に同一サンプルの変化を表示します。</div></section>
+      </div>
+    </section>
+
+    <section id="panel-parameters" class="tab-panel">
+      <div class="parameter-layout">
+        <section class="panel parameter-list-panel">
+          <div class="section-heading"><div><p class="eyebrow">MODEL PARAMETERS</p><h2>Parameter Browser</h2></div><span id="parameter-total" class="badge">—</span></div>
+          <div class="table-scroll"><table><thead><tr><th>Parameter</th><th>Shape</th><th>Count</th><th>Mean</th><th>Std</th><th>Min</th><th>Max</th><th>Grad norm</th></tr></thead><tbody id="parameter-table"></tbody></table></div>
+        </section>
+        <aside class="panel">
+          <h2>Gradient Inspector</h2>
+          <div id="parameter-inspector" class="empty">Parameter行を選択してください。</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="panel-architecture" class="tab-panel">
+      <section class="panel architecture-panel">
+        <div class="section-heading"><div><p class="eyebrow">ONE BLOCK / PRE-LAYERNORM</p><h2>Model Architecture</h2></div><span class="badge">Context 8 · d_model 8 · 2 heads</span></div>
+        <div id="architecture-view" class="architecture-view"></div>
+      </section>
+      <section class="panel"><h2>用語</h2><div id="glossary" class="glossary"></div></section>
+    </section>
+
+    <section id="panel-debug" class="tab-panel">
+      <div class="debug-layout">
+        <section class="panel">
+          <h2>Finite Difference Gradient Check</h2>
+          <p class="microcopy">現在のモデルと固定Corpus先頭例を使い、選択要素の解析勾配と中央差分を比較します。Parameter値は元へ戻します。</p>
+          <label>Parameter <select id="gradient-parameter"></select></label>
+          <label>Flat index <input id="gradient-index" type="number" value="0" min="0" step="1"></label>
+          <button id="run-gradient-check" class="primary">Gradient Check</button>
+          <div id="gradient-result" class="output-box">未実行</div>
+        </section>
+        <section class="panel">
+          <h2>Snapshot / Comparison</h2>
+          <div class="button-row"><button id="capture-snapshot">現在状態をSnapshot</button><select id="snapshot-select"></select></div>
+          <div id="snapshot-comparison" class="empty">Snapshotを選択すると、現在モデルとの差を同じ入力で比較します。</div>
+        </section>
+        <section class="panel">
+          <h2>Export / Import</h2>
+          <p class="microcopy">構成・Vocabulary・全Parameter・Seed・学習設定・StepをJSONで保存します。読込時は形式・Shape・有限値を検証します。</p>
+          <div class="button-row"><button id="export-state">JSON Export</button><label class="file-button">JSON Import<input id="import-state" type="file" accept="application/json,.json"></label></div>
+          <div id="io-status" class="output-box">—</div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>Glassbox AI II / local-only educational instrument</span><span>No API · No pretrained model · No ML library</span></footer>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

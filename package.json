@@ -1,0 +1,13 @@
+{
+  "name": "glassbox-ai-suite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:portal": "node --test tests/*.test.js",
+    "test:neural": "npm --prefix glassbox-ai run check",
+    "test:language": "npm --prefix glassbox-ai-ii test",
+    "test:reinforcement": "npm --prefix glassbox-ai-iii run check",
+    "check": "npm run test:portal && npm run test:neural && npm run test:language && npm run test:reinforcement"
+  }
+}

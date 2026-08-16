@@ -1,0 +1,11 @@
+{
+  "name": "glassbox-ai",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:coverage": "node --experimental-test-coverage --test",
+    "check": "node --check src/app.js && node --test"
+  }
+}

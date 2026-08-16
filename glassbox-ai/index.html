@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="application-name" content="glassbox-ai">
+    <meta name="description" content="ニューラルネットワークの内部計算、7×7環境、REINFORCE方策勾配を数値で観察するローカル完結型の極小AI実験室。">
+    <title>Glassbox AI — 内部動作を観察できる極小AI実験室</title>
+    <link rel="stylesheet" href="./css/style.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div>
+        <p class="eyebrow">Transparent neural network laboratory</p>
+        <h1>Glassbox AI</h1>
+        <p class="subtitle">内部動作を観察できる極小AI実験室</p>
+      </div>
+      <div class="header-note">
+        <strong>固定構造 5 → 4 → 3</strong>
+        <span>tanh / softmax / cross entropy / SGD</span>
+        <span>外部API・学習済みモデル・MLライブラリ不使用</span>
+      </div>
+    </header>
+
+    <section class="status-strip" aria-label="現在の実験状態">
+      <div><span>フェーズ</span><strong id="phase-value">準備</strong></div>
+      <div><span>ステップ</span><strong id="step-value">0 / 0</strong></div>
+      <div><span>学習回数</span><strong id="learning-count">0</strong></div>
+      <div class="status-message"><span>現在</span><strong id="status-message">初期化中</strong></div>
+    </section>
+
+    <section class="quick-start" aria-labelledby="quick-start-heading">
+      <div class="quick-start-intro">
+        <p class="eyebrow">FIRST 3 MINUTES</p>
+        <h2 id="quick-start-heading">まず、学習で数字が変わる瞬間を見る</h2>
+        <p>初めてなら「誤差から学ぶ」がおすすめです。計算は自動で省略せず、既存の実値タイムラインを案内します。</p>
+      </div>
+      <div class="quick-start-paths" aria-label="観察コース">
+        <button id="quick-supervised" type="button" class="quick-path selected" aria-pressed="true">
+          <span>おすすめ · 約3分</span>
+          <strong>誤差から学ぶ</strong>
+          <small>予測 → 正解との差 → 39 Parameter更新 → 前後比較</small>
+        </button>
+        <button id="quick-reinforcement" type="button" class="quick-path" aria-pressed="false">
+          <span>第三弾 · 別タイムライン</span>
+          <strong>報酬から学ぶ</strong>
+          <small>環境履歴 → 累積報酬 → 探索/活用 → 方策更新</small>
+        </button>
+        <button id="quick-explore" type="button" class="quick-path" aria-pressed="false">
+          <span>自由観察</span>
+          <strong>1計算ずつ追う</strong>
+          <small>積、和、活性化、勾配を「次のステップ」で確認</small>
+        </button>
+      </div>
+      <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite"></div>
+    </section>
+
+    <details class="curriculum-guide">
+      <summary>初心者向け：この実験と生成AIのつながり</summary>
+      <div class="curriculum-grid">
+        <div>
+          <strong>共通する骨格</strong>
+          <span>入力を数値へ変換 → Parameterで計算 → 確率 → 学習信号 → 勾配 → 更新</span>
+        </div>
+        <div>
+          <strong>第一弾：教師あり学習</strong>
+          <span>人が指定した正解ラベルと予測の差から更新します。</span>
+        </div>
+        <div>
+          <strong>第三弾：強化学習</strong>
+          <span>環境から得た報酬を、実際に選んだ行動の方策更新へ戻します。</span>
+        </div>
+        <div>
+          <strong>Glassbox AI II：言語モデル</strong>
+          <span>文章中の次Tokenを教師にしてTransformerを更新します。生成AIの事前学習は主にこちらの系統です。</span>
+        </div>
+      </div>
+      <p>強化学習だけが生成AIの仕組みではありません。三つの実験は学習信号が異なりますが、数値計算と勾配更新という共通骨格を持ちます。</p>
+    </details>
+
+    <main class="lab-grid">
+      <section class="panel controls-panel" aria-labelledby="experiment-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">01</p>
+            <h2 id="experiment-heading">実験条件</h2>
+          </div>
+          <span class="panel-kicker">入力と再現性</span>
+        </div>
+
+        <div class="control-stack">
+          <label class="field-label" for="preset-select">入力プリセット</label>
+          <div class="inline-control">
+            <select id="preset-select"></select>
+            <button id="apply-preset" type="button">適用</button>
+          </div>
+          <p class="microcopy">プリセットは入力と正解だけを変更します。重みは学習済み状態へ変えません。</p>
+
+          <label class="field-label" for="seed-input">重み初期化シード</label>
+          <input id="seed-input" type="text" value="glassbox-1" spellcheck="false">
+
+          <div class="two-column-fields">
+            <label>
+              <span class="field-label">学習率 η</span>
+              <input id="learning-rate" type="number" value="0.1" min="0.000001" step="0.01">
+            </label>
+            <label>
+              <span class="field-label">表示桁数</span>
+              <select id="precision-select">
+                <option value="2">小数点以下2桁</option>
+                <option value="4" selected>小数点以下4桁</option>
+                <option value="6">小数点以下6桁</option>
+              </select>
+            </label>
+          </div>
+          <p class="microcopy">表示だけを丸めます。内部計算には丸め前の倍精度値を使います。</p>
+        </div>
+      </section>
+
+      <section class="panel inputs-panel" aria-labelledby="inputs-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">02</p>
+            <h2 id="inputs-heading">入力操作</h2>
+          </div>
+          <span class="panel-kicker">範囲 -1.0 ～ +1.0</span>
+        </div>
+        <div id="input-controls" class="input-controls"></div>
+      </section>
+
+      <section class="panel grid-world-panel span-full" aria-labelledby="grid-world-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">02B</p>
+            <h2 id="grid-world-heading">小型グリッドワールド実験区</h2>
+          </div>
+          <span class="panel-kicker">第二弾：環境とネットワークの接続</span>
+        </div>
+
+        <div class="grid-world-layout">
+          <div class="grid-map-column">
+            <div
+              id="grid-board"
+              class="grid-board"
+              role="grid"
+              aria-label="7×7グリッドワールド"
+              aria-rowcount="7"
+              aria-colcount="7"
+            ></div>
+            <div class="grid-legend" aria-label="グリッドの凡例">
+              <span><i class="grid-legend-cell empty"></i>空き</span>
+              <span><i class="grid-legend-cell wall">▦</i>壁</span>
+              <span><i class="grid-legend-cell danger">!</i>危険</span>
+              <span><i class="grid-legend-cell food">●</i>餌</span>
+              <span><i class="grid-legend-cell agent">↑</i>AIと向き</span>
+            </div>
+
+            <div class="grid-world-seed-row">
+              <label for="grid-world-seed">
+                <span class="field-label">世界シード</span>
+                <input id="grid-world-seed" type="text" value="grid-1" spellcheck="false">
+              </label>
+              <button id="grid-world-reset" type="button">世界をリセット</button>
+            </div>
+          </div>
+
+          <div class="grid-observation-column">
+            <div class="grid-sync-header">
+              <span class="field-label">世界とネットワーク入力</span>
+              <strong id="grid-sync-state" class="sync-badge stale">未同期</strong>
+            </div>
+
+            <div class="grid-workflow-actions">
+              <button id="grid-sync-sensors" type="button">1. センサーを入力へ送る</button>
+              <button id="grid-prepare-teacher" type="button">2. 教師データを準備</button>
+              <button id="grid-apply-action" type="button" class="primary" disabled>3. AI判断を世界へ適用</button>
+            </div>
+
+            <div class="grid-action-map" aria-label="出力とグリッド行動の対応">
+              <span><strong>行動A</strong> 前進</span>
+              <span><strong>行動B</strong> 左折</span>
+              <span><strong>行動C</strong> 右折</span>
+            </div>
+
+            <div class="grid-stats" aria-label="世界の現在状態">
+              <div><span>向き</span><strong id="grid-agent-direction">—</strong></div>
+              <div><span>環境ステップ</span><strong id="grid-world-step">0</strong></div>
+              <div><span>餌取得</span><strong id="grid-food-count">0</strong></div>
+              <div><span>衝突</span><strong id="grid-collision-count">0</strong></div>
+              <div><span>危険接触</span><strong id="grid-danger-count">0</strong></div>
+              <div><span>直前の単発報酬</span><strong id="grid-last-reward">0.0000</strong></div>
+            </div>
+
+            <div class="grid-event-box">
+              <span class="box-label">直前の環境イベント</span>
+              <p id="grid-last-event"></p>
+            </div>
+
+            <div class="grid-decision-grid">
+              <div>
+                <span>現在のAI判断</span>
+                <strong id="grid-prediction">—</strong>
+              </div>
+              <div>
+                <span>安全最短経路の教師</span>
+                <strong id="grid-teacher-action">—</strong>
+                <small id="grid-teacher-length"></small>
+              </div>
+            </div>
+
+            <div id="grid-sensor-list" class="grid-sensor-list" aria-label="現在世界の5センサー"></div>
+
+            <aside class="stage-boundary-note">
+              <strong>第二弾の学習方式</strong>
+              <p>報酬は環境結果として表示しますが、まだ重み更新には使いません。「教師データを準備」で安全最短経路の行動を正解ラベルにし、第一弾の可視化済み誤差逆伝播で学習します。報酬から方策を更新する強化学習は第三弾です。</p>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel rl-panel span-full" aria-labelledby="rl-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">02C</p>
+            <h2 id="rl-heading">強化学習実験区</h2>
+          </div>
+          <span class="panel-kicker">第三弾：REINFORCE / 報酬から方策更新</span>
+        </div>
+
+        <div class="rl-settings-grid">
+          <label>
+            <span class="field-label">報酬プリセット</span>
+            <select id="rl-reward-profile"></select>
+          </label>
+          <label>
+            <span class="field-label">強化学習シード</span>
+            <input id="rl-random-seed" type="text" value="rl-1" spellcheck="false">
+          </label>
+          <label>
+            <span class="field-label">割引率 γ</span>
+            <input id="rl-gamma" type="number" value="0.9" min="0" max="1" step="0.05">
+          </label>
+          <label>
+            <span class="field-label">方策温度 τ</span>
+            <input id="rl-temperature" type="number" value="1.2" min="0.05" max="10" step="0.1">
+          </label>
+          <label>
+            <span class="field-label">RL学習率 η</span>
+            <input id="rl-learning-rate" type="number" value="0.05" min="0.000001" step="0.01">
+          </label>
+          <label>
+            <span class="field-label">最大環境ステップ</span>
+            <input id="rl-max-steps" type="number" value="16" min="1" max="60" step="1">
+          </label>
+        </div>
+        <p id="rl-profile-description" class="rl-profile-description"></p>
+
+        <div class="button-row rl-main-actions">
+          <button id="rl-start-episode" type="button" class="primary">新しいエピソード</button>
+          <button id="rl-first" type="button" disabled>最初から</button>
+          <button id="rl-previous" type="button" disabled>← 前のRLステップ</button>
+          <button id="rl-next" type="button" disabled>次のRLステップ →</button>
+          <button id="rl-run-end" type="button" disabled>エピソード最後まで</button>
+          <button id="rl-run-ten" type="button">10エピソード連続</button>
+          <button id="rl-export-history" type="button" disabled>RL履歴JSON</button>
+          <button id="rl-session-reset" type="button" class="danger-outline" disabled>RLセッションを取消</button>
+        </div>
+        <progress id="rl-step-progress" value="0" max="1">0%</progress>
+
+        <div class="rl-axis-panel" aria-label="強化学習専用の因果タイムライン">
+          <div class="rl-axis-heading">
+            <strong>RL専用因果レール</strong>
+            <span>139ステップ数学タイムラインとは別軸</span>
+          </div>
+          <ol class="rl-causal-rail">
+            <li data-rl-axis="observe"><span>1</span>観測</li>
+            <li data-rl-axis="policy"><span>2</span>方策確率</li>
+            <li data-rl-axis="sample"><span>3</span>探索/活用</li>
+            <li data-rl-axis="transition"><span>4</span>遷移・報酬</li>
+            <li data-rl-axis="return"><span>5</span>割引リターン</li>
+            <li data-rl-axis="gradient"><span>6</span>方策勾配</li>
+            <li data-rl-axis="update"><span>7</span>39更新</li>
+            <li data-rl-axis="compare"><span>8</span>前後比較</li>
+          </ol>
+          <p id="rl-axis-note">139ステップの数学タイムラインとは独立しています。エピソード開始後、環境時刻と報酬の因果をこの軸で追います。</p>
+        </div>
+
+        <div class="rl-layout">
+          <div class="rl-world-column">
+            <div
+              id="rl-grid-board"
+              class="grid-board rl-grid-board"
+              role="grid"
+              aria-label="強化学習タイムラインの7×7グリッド"
+              aria-rowcount="7"
+              aria-colcount="7"
+            ></div>
+            <div class="rl-stat-grid" aria-label="強化学習の現在値">
+              <div><span>エピソード</span><strong id="rl-episode-number">—</strong></div>
+              <div><span>環境時刻</span><strong id="rl-environment-time">—</strong></div>
+              <div><span>RLタイムライン</span><strong id="rl-step-position">0 / 0</strong></div>
+              <div><span>累積報酬</span><strong id="rl-cumulative-reward">0.0000</strong></div>
+              <div><span>餌取得</span><strong id="rl-foods">0</strong></div>
+              <div><span>探索</span><strong id="rl-exploration">0</strong></div>
+              <div><span>活用</span><strong id="rl-exploitation">0</strong></div>
+              <div><span>方策エントロピー</span><strong id="rl-entropy">—</strong></div>
+            </div>
+
+            <div id="rl-policy-bars" class="rl-policy-bars" aria-label="現在の温度付き行動確率"></div>
+
+            <div class="rl-diagnostic" aria-live="polite">
+              <span class="box-label">観測値に基づく診断</span>
+              <strong id="rl-diagnostic-label">エピソード終了後に診断</strong>
+              <p id="rl-diagnostic-evidence">報酬の高さと餌取得を別々に検査します。</p>
+            </div>
+          </div>
+
+          <div class="rl-calculation-column">
+            <article class="step-readout rl-step-readout" aria-live="polite">
+              <span id="rl-phase" class="rl-phase-badge">準備</span>
+              <h3 id="rl-current-title">強化学習はまだ始まっていません</h3>
+              <p id="rl-current-description">設定を確認し、「新しいエピソード」を押してください。</p>
+              <div id="rl-formula" class="formula-display rl-formula"></div>
+            </article>
+            <aside class="explanation-box">
+              <span class="box-label">この段階の因果関係</span>
+              <p id="rl-explanation">エピソード中はネットワークを固定し、終了後に報酬を方策勾配へ変換します。</p>
+            </aside>
+
+            <div class="table-scroll rl-experience-scroll">
+              <table class="rl-experience-table">
+                <thead>
+                  <tr>
+                    <th scope="col">t</th>
+                    <th scope="col">遷移前状態</th>
+                    <th scope="col">行動</th>
+                    <th scope="col">探索/活用</th>
+                    <th scope="col">環境イベント</th>
+                    <th scope="col">遷移後状態</th>
+                    <th scope="col">単発報酬</th>
+                    <th scope="col">累積報酬</th>
+                    <th scope="col">割引リターン G</th>
+                  </tr>
+                </thead>
+                <tbody id="rl-experience-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="rl-history-section">
+          <div>
+            <h3>エピソード履歴</h3>
+            <p class="microcopy">累積報酬が高くても、餌を取っていなければ目的達成とは扱いません。</p>
+          </div>
+          <svg id="rl-history-chart" viewBox="0 0 760 190" role="img" aria-label="エピソード別累積報酬の推移"></svg>
+          <div class="table-scroll rl-history-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">回</th>
+                  <th scope="col">報酬設定</th>
+                  <th scope="col">累積報酬</th>
+                  <th scope="col">餌</th>
+                  <th scope="col">衝突</th>
+                  <th scope="col">危険</th>
+                  <th scope="col">探索/活用</th>
+                  <th scope="col">診断</th>
+                </tr>
+              </thead>
+              <tbody id="rl-history-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rl-parameter-section">
+          <div class="rl-subheading">
+            <div>
+              <h3>REINFORCE 全39パラメータ</h3>
+              <p class="microcopy">エピソード平均勾配と、実際に適用済みの更新だけを表示します。</p>
+            </div>
+            <span class="parameter-badge"><span id="rl-parameter-count">0 / 39</span> パラメータ</span>
+          </div>
+          <div class="table-scroll rl-parameter-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">パラメータ名</th>
+                  <th scope="col">現在値</th>
+                  <th scope="col">平均方策勾配</th>
+                  <th scope="col">更新量</th>
+                  <th scope="col">更新後</th>
+                </tr>
+              </thead>
+              <tbody id="rl-parameter-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="stage-boundary-note rl-boundary-note">
+          <strong>第三弾の学習方式</strong>
+          <p>安全教師やone-hot正解は使いません。温度付きsoftmaxから行動をサンプリングし、実際に得た割引リターンでREINFORCE方策勾配を計算します。診断は観測パターンを示すもので、AIの意図を断定しません。</p>
+        </aside>
+      </section>
+
+      <section class="panel network-panel span-full" aria-labelledby="network-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">03</p>
+            <h2 id="network-heading">ニューラルネットワーク</h2>
+          </div>
+          <div class="connection-legend" aria-label="接続線の凡例">
+            <span><i class="legend-line positive"></i>＋ 正の重み</span>
+            <span><i class="legend-line negative"></i>− 負の重み</span>
+            <span><i class="legend-line active"></i>▶ 現在の接続</span>
+          </div>
+        </div>
+        <div class="network-stage">
+          <svg id="network-svg" viewBox="0 0 1000 530" role="img" aria-label="5入力・4中間・3出力の全結合ニューラルネットワーク"></svg>
+        </div>
+        <div class="network-footer">
+          <div id="connection-inspector" class="connection-inspector" aria-live="polite">
+            <strong>接続を選択</strong>
+            <span>線へマウスを重ねるか、クリックすると正確な重みを表示します。</span>
+          </div>
+          <div id="output-summary" class="output-summary"></div>
+        </div>
+      </section>
+
+      <section class="panel step-panel" aria-labelledby="step-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">04</p>
+            <h2 id="step-heading">計算ステップ</h2>
+          </div>
+          <span class="panel-kicker">完全スナップショット履歴</span>
+        </div>
+
+        <div class="button-row main-actions">
+          <button id="timeline-first" type="button">最初から</button>
+          <button id="step-previous" type="button">← 前のステップ</button>
+          <button id="step-next" type="button" class="primary">次のステップ →</button>
+          <button id="run-to-end" type="button">最後まで実行</button>
+        </div>
+
+        <div class="auto-controls">
+          <span class="field-label">自動実行</span>
+          <button id="auto-play" type="button">▶ 再生</button>
+          <button id="auto-pause" type="button" disabled>Ⅱ 一時停止</button>
+          <label for="speed-select">速度</label>
+          <select id="speed-select">
+            <option value="0.25">0.25倍</option>
+            <option value="0.5">0.5倍</option>
+            <option value="1" selected>1倍</option>
+            <option value="2">2倍</option>
+            <option value="4">4倍</option>
+          </select>
+        </div>
+
+        <progress id="step-progress" value="0" max="1">0%</progress>
+        <article class="step-readout" aria-live="polite">
+          <h3 id="step-title">計算開始前</h3>
+          <p id="step-description"></p>
+          <div id="formula-display" class="formula-display"></div>
+        </article>
+        <aside class="explanation-box">
+          <span class="box-label">いま何が起きているか</span>
+          <p id="natural-explanation"></p>
+        </aside>
+      </section>
+
+      <section class="panel learning-panel" aria-labelledby="learning-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">05</p>
+            <h2 id="learning-heading">教師あり学習</h2>
+          </div>
+          <span class="panel-kicker">単一サンプル / SGD</span>
+        </div>
+
+        <fieldset>
+          <legend>この入力の正解クラス</legend>
+          <div id="target-controls" class="target-controls"></div>
+        </fieldset>
+        <button id="start-learning" type="button" class="primary full-button" disabled>順伝播後に学習を開始</button>
+        <p class="microcopy">学習もone-hot、損失、各勾配、各更新、再順伝播へ分解して進みます。</p>
+
+        <div id="comparison" class="comparison empty"></div>
+      </section>
+
+      <section class="panel parameter-panel span-full" aria-labelledby="parameter-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">06</p>
+            <h2 id="parameter-heading">全パラメータ一覧</h2>
+          </div>
+          <span class="parameter-badge"><span id="parameter-count">0 / 39</span> パラメータ</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">パラメータ名</th>
+                <th scope="col">接続元</th>
+                <th scope="col">接続先</th>
+                <th scope="col">現在値</th>
+                <th scope="col">更新前</th>
+                <th scope="col">勾配 ∂L/∂θ</th>
+                <th scope="col">更新量 −ηg</th>
+                <th scope="col">更新後</th>
+              </tr>
+            </thead>
+            <tbody id="parameter-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel reset-panel" aria-labelledby="reset-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">07</p>
+            <h2 id="reset-heading">状態・保存</h2>
+          </div>
+          <span class="panel-kicker">作用範囲を分離</span>
+        </div>
+        <div class="reset-actions">
+          <button id="calculation-reset" type="button">
+            <strong>計算だけリセット</strong>
+            <span>現在の重みを維持し、推論の先頭へ</span>
+          </button>
+          <button id="undo-learning" type="button" disabled>
+            <strong>学習前へ戻す</strong>
+            <span>直前学習の39パラメータ更新を取消</span>
+          </button>
+          <button id="full-reset" type="button" class="danger-outline">
+            <strong>完全リセット</strong>
+            <span>指定シードで再初期化し全履歴を削除</span>
+          </button>
+        </div>
+        <div class="button-row file-actions">
+          <button id="save-state" type="button">状態JSONを保存</button>
+          <label class="button-like" for="load-state-file">状態JSONを読み込む</label>
+          <input id="load-state-file" class="visually-hidden" type="file" accept="application/json,.json">
+        </div>
+        <p class="microcopy">読み込み時は形式、版、固定構造、配列形状、有限数、入力範囲を検証します。</p>
+      </section>
+
+      <section class="panel glossary-panel" aria-labelledby="glossary-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">08</p>
+            <h2 id="glossary-heading">用語の短い補足</h2>
+          </div>
+          <span class="panel-kicker">観察用語集</span>
+        </div>
+        <div id="glossary" class="glossary"></div>
+      </section>
+
+      <section class="panel log-panel span-full" aria-labelledby="log-heading">
+        <div class="panel-heading">
+          <div>
+            <p class="panel-index">09</p>
+            <h2 id="log-heading">操作・計算ログ</h2>
+          </div>
+          <div class="button-row compact-actions">
+            <button id="export-log-text" type="button">TXT出力</button>
+            <button id="export-log-json" type="button">JSON出力</button>
+            <button id="clear-log" type="button">画面ログ消去</button>
+          </div>
+        </div>
+        <pre id="log-output" class="log-output" tabindex="0"></pre>
+      </section>
+    </main>
+
+    <footer>
+      <p>Glassbox AI v3 — 固定5-4-3方策ネットワークのREINFORCE更新まで追跡する透明な観察装置です。</p>
+    </footer>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
