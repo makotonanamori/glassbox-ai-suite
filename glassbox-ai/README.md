@@ -4,13 +4,9 @@
 
 高性能なAIを作ることは目的にしていません。5入力・4中間・3出力の小さなネットワークを透明な解剖模型として扱い、順伝播、損失、誤差逆伝播、勾配降下の因果関係を一計算ずつ観察できることを優先しています。
 
-## Canonical responsibility
+## Canonical implementation
 
 Glassbox AI Iの正本は、固定5→4→3ネットワークの教師あり学習、cross entropy、誤差逆伝播、SGD、139 step数学timelineです。言語モデルは[Glassbox AI II](../glassbox-ai-ii/)、環境報酬から学ぶ強化学習は[Glassbox AI III](../glassbox-ai-iii/)が正本です。
-
-> Legacy compatibility: 分離前のGrid World / REINFORCE code、DOM、testは保存形式と数値回帰のため内部に凍結保持しています。通常UIでは表示せず、新機能の実装先にはしません。
-
-## 同梱している実装
 
 - 固定構造 `5入力 → 全結合4中間 → 全結合3出力`
 - 中間層の`tanh`
@@ -25,6 +21,11 @@ Glassbox AI Iの正本は、固定5→4→3ネットワークの教師あり学�
 - シード付き初期化、3プリセット、表示精度切替
 - 自動実行、速度変更、ログ、JSON保存・読込
 - 中央差分による全39パラメータの勾配チェック
+
+## Legacy compatibility reference
+
+以下は分離前から残るGrid World / REINFORCEの参照情報です。Glassbox AI Iのcanonical implementationではなく、強化学習教材の正本は[Glassbox AI III](../glassbox-ai-iii/)です。本文中で`Legacy`と示す操作・数式・制限は、この参照範囲に属します。
+
 - 7×7固定グリッドワールド、壁、危険セル、餌、エージェントの向き
 - 世界状態から計算する5センサーとネットワーク入力の明示的な同期
 - 行動A＝前進、行動B＝左折、行動C＝右折としてargmax判断を環境へ反映
@@ -51,8 +52,6 @@ Glassbox AI Iの正本は、固定5→4→3ネットワークの教師あり学�
 - Transformer、文章生成、画像認識、音声認識、Q学習、Actor-Critic
 
 すべての数学処理は、このリポジトリ内のVanilla JavaScriptで実装しています。
-
-以下で説明するGrid World / REINFORCE部分はlegacy compatibility referenceです。canonicalな強化学習教材と公開UIは`glassbox-ai-iii`を参照してください。
 
 ## 必要環境
 
