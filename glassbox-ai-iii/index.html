@@ -43,9 +43,9 @@
           <small>予測 → 正解との差 → 39 Parameter更新 → 前後比較</small>
         </button>
         <button id="quick-reinforcement" type="button" class="quick-path primary selected" aria-pressed="true" data-experience-mode="auto">
-          <span>おすすめ · 1クリック</span>
+          <span>おすすめ · 10回の試行錯誤</span>
           <strong>▶ 自動で見る</strong>
-          <small>実際の行動と結果を1回分まとめて見ます</small>
+          <small>AIの移動と結果の変化を連続して見ます</small>
         </button>
         <button id="quick-explore" type="button" class="quick-path" aria-pressed="false" data-experience-mode="detail">
           <span>結果を見たあとに</span>
@@ -58,6 +58,17 @@
         <li data-flow-step="motion">2 動く</li>
         <li data-flow-step="result">3 結果</li>
       </ol>
+      <div class="experience-run-controls" aria-label="連続エピソードの再生操作">
+        <button id="experience-pause" type="button" disabled>一時停止</button>
+        <label for="experience-speed">速さ</label>
+        <select id="experience-speed">
+          <option value="0.5">0.5倍</option>
+          <option value="1">1倍</option>
+          <option value="2" selected>2倍</option>
+          <option value="4">4倍</option>
+        </select>
+        <strong id="experience-progress">0 / 10 エピソード</strong>
+      </div>
       <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite">「自動で見る」を押してください。</div>
     </section>
 
@@ -267,7 +278,7 @@
           <button id="rl-previous" type="button" disabled>← 前のRLステップ</button>
           <button id="rl-next" type="button" disabled>次のRLステップ →</button>
           <button id="rl-run-end" type="button" disabled>エピソード最後まで</button>
-          <button id="rl-run-ten" type="button">10エピソード連続</button>
+          <button id="rl-run-ten" type="button">10エピソードを自動で見る</button>
           <button id="rl-export-history" type="button" disabled>RL履歴JSON</button>
           <button id="rl-session-reset" type="button" class="danger-outline" disabled>RLセッションを取消</button>
         </div>

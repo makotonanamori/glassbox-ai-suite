@@ -30,6 +30,11 @@ import {
 import { REWARD_PROFILES, getRewardProfile } from './reward-profiles.js';
 import { ReinforcementStepEngine, RL_DEFAULTS } from './reinforcement-learning.js';
 import { serializeReinforcementHistory } from './reinforcement-history.js';
+import {
+  CONTINUOUS_EPISODE_DEFAULTS,
+  advanceToReinforcementVisualBoundary,
+  continuousEpisodeDelay,
+} from './continuous-episode-runner.js';
 
 const PRESETS = Object.freeze({
   simple: { label: 'プリセット1：単純な入力', inputs: [0.8, 0, 0, 0, 0], targetIndex: 0 },
@@ -45,6 +50,7 @@ const elements = Object.fromEntries(
     'input-controls', 'preset-select', 'apply-preset', 'seed-input', 'learning-rate', 'precision-select',
     'network-svg', 'connection-inspector', 'phase-value', 'step-value', 'learning-count', 'status-message',
     'quick-supervised', 'quick-reinforcement', 'quick-explore', 'quick-start-status',
+    'experience-pause', 'experience-speed', 'experience-progress',
     'timeline-first', 'step-previous', 'step-next', 'run-to-end', 'auto-play', 'auto-pause', 'speed-select',
     'step-progress', 'step-title', 'step-description', 'formula-display', 'natural-explanation',
     'target-controls', 'start-learning', 'comparison', 'parameter-body', 'parameter-count',
@@ -83,6 +89,8 @@ let rlSessionStartWorld = null;
 let rlSessionStartInputs = null;
 const operationLog = new OperationLog();
 let autoTimer = null;
+let rlContinuousRun = null;
+let rlContinuousToken = 0;
 let quickStartMode = requestedQuickStartModes.has(quickStartRequest) ? quickStartRequest : 'reinforcement';
 let experienceState = quickStartMode === 'explore' ? 'detail' : 'ready';
 let experienceMessage = experienceState === 'detail'
@@ -105,6 +113,7 @@ function addLog(message) {
 }
 
 function clearRlSession(message = null) {
+  cancelContinuousRlRun();
   const hadSession = Boolean(rlEngine || rlEpisodeHistory.length || rlSessionStartNetwork);
   rlEngine = null;
   rlEpisodeHistory = [];
@@ -874,7 +883,17 @@ function renderRlPanel() {
   elements['rl-run-end'].disabled = !rlEngine || !rlEngine.canGoNext;
   elements['rl-session-reset'].disabled = !rlSessionStartNetwork;
   elements['rl-export-history'].disabled = rlEpisodeRecords.length === 0;
-  const settingsLocked = Boolean(rlEngine && !rlEngine.isComplete);
+  const continuousActive = Boolean(rlContinuousRun && !rlContinuousRun.complete);
+  if (continuousActive) {
+    elements['rl-first'].disabled = true;
+    elements['rl-previous'].disabled = true;
+    elements['rl-next'].disabled = true;
+    elements['rl-run-end'].disabled = true;
+    elements['rl-session-reset'].disabled = true;
+  }
+  elements['rl-start-episode'].disabled = continuousActive;
+  elements['rl-run-ten'].disabled = continuousActive;
+  const settingsLocked = continuousActive || Boolean(rlEngine && !rlEngine.isComplete);
   [
     'rl-reward-profile', 'rl-random-seed', 'rl-gamma', 'rl-temperature',
     'rl-learning-rate', 'rl-max-steps',
@@ -894,13 +913,22 @@ function renderLog() {
 function renderQuickStartGuide() {
   const entry = document.querySelector('[data-experience-entry]');
   entry.dataset.experienceState = experienceState;
+  const continuousActive = Boolean(rlContinuousRun && !rlContinuousRun.complete);
+  const continuousPaused = Boolean(continuousActive && rlContinuousRun.paused);
+  entry.dataset.continuousState = continuousPaused ? 'paused' : (continuousActive ? 'running' : 'idle');
   const autoSelected = experienceState !== 'detail';
   elements['quick-reinforcement'].classList.toggle('selected', autoSelected);
   elements['quick-reinforcement'].setAttribute('aria-pressed', String(autoSelected));
   elements['quick-explore'].classList.toggle('selected', !autoSelected);
   elements['quick-explore'].setAttribute('aria-pressed', String(!autoSelected));
-  elements['quick-reinforcement'].disabled = experienceState === 'running';
-  elements['quick-explore'].disabled = experienceState === 'running';
+  elements['quick-reinforcement'].disabled = continuousActive && !continuousPaused;
+  elements['quick-reinforcement'].querySelector('strong').textContent = continuousPaused
+    ? '▶ 続ける'
+    : (continuousActive ? '動いています…' : '▶ 自動で見る');
+  elements['experience-pause'].disabled = !continuousActive || continuousPaused;
+  elements['experience-progress'].textContent = rlContinuousRun
+    ? `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes} エピソード`
+    : `0 / ${CONTINUOUS_EPISODE_DEFAULTS.count} エピソード`;
 
   const flowState = experienceState === 'detail' ? 'ready' : experienceState;
   const flowOrder = { ready: 0, running: 1, complete: 2 };
@@ -912,34 +940,129 @@ function renderQuickStartGuide() {
   elements['quick-start-status'].textContent = experienceMessage;
 }
 
-async function runBeginnerAutoObserve() {
-  if (experienceState === 'running') return;
-  pauseAuto();
-  quickStartMode = 'reinforcement';
-  experienceState = 'running';
-  experienceMessage = '動いています。小さな世界で行動し、結果を集めています。';
-  renderQuickStartGuide();
-  await new Promise((resolve) => window.requestAnimationFrame(resolve));
+function waitForContinuousFrame(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
 
+function cancelContinuousRlRun({ logMessage = null } = {}) {
+  const wasActive = Boolean(rlContinuousRun && !rlContinuousRun.complete);
+  rlContinuousToken += 1;
+  rlContinuousRun = null;
+  if (wasActive && logMessage) addLog(logMessage);
+  return wasActive;
+}
+
+function pauseContinuousRlRun() {
+  if (!rlContinuousRun || rlContinuousRun.complete || rlContinuousRun.paused) return;
+  rlContinuousToken += 1;
+  rlContinuousRun.paused = true;
+  experienceState = 'running';
+  experienceMessage = `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}エピソードで一時停止しました。「続ける」で再開できます。`;
+  addLog(`[RL連続] ${rlContinuousRun.completed}/${rlContinuousRun.targetEpisodes}で一時停止`);
+  render();
+}
+
+async function continueContinuousRlRun(run) {
+  const token = ++rlContinuousToken;
   try {
-    if (!startRlEpisode({ confirmDiscard: false })) throw new Error('エピソードを開始できませんでした。');
-    addLog('[自動で見る] 強化学習エピソードを開始');
-    runRlToEnd();
-    const { cumulativeReward, foods, steps } = rlEngine.summary;
+    while (run.completed < run.targetEpisodes && token === rlContinuousToken && !run.paused) {
+      if (!rlEngine || rlEngine.isComplete) {
+        if (!startRlEpisode({ confirmDiscard: false })) throw new Error('エピソードを開始できませんでした。');
+        run.currentEpisodeNumber = rlEngine.config.episodeNumber;
+        experienceMessage = `エピソード${run.currentEpisodeNumber}を開始しました。AIの移動を観察してください。`;
+        render();
+      }
+
+      while (rlEngine.canGoNext && token === rlContinuousToken && !run.paused) {
+        const boundary = advanceToReinforcementVisualBoundary(rlEngine, (step) => addLog(step.logMessage));
+        if (boundary.complete) {
+          commitRlEpisodeIfComplete();
+          run.completed += 1;
+          run.summaries.push(rlEngine.summary);
+          const summary = rlEngine.summary;
+          experienceMessage = `${run.completed} / ${run.targetEpisodes}完了。直近は${summary.steps}回行動、合計${formatSigned(summary.cumulativeReward)}点、餌${summary.foods}個です。`;
+          render();
+          if (run.completed < run.targetEpisodes) {
+            await waitForContinuousFrame(continuousEpisodeDelay(elements['experience-speed'].value, 'episode'));
+          }
+          break;
+        }
+
+        const experience = boundary.step.details.experience;
+        experienceMessage = `エピソード${run.currentEpisodeNumber}・${experience.time + 1}回目：${experience.event}（${formatSigned(experience.reward)}点）`;
+        render();
+        await waitForContinuousFrame(continuousEpisodeDelay(elements['experience-speed'].value));
+      }
+    }
+
+    if (token !== rlContinuousToken || run.paused) return;
+    run.complete = true;
+    const totalReward = run.summaries.reduce((sum, summary) => sum + summary.cumulativeReward, 0);
+    const totalFoods = run.summaries.reduce((sum, summary) => sum + summary.foods, 0);
     experienceState = 'complete';
-    experienceMessage = `結果が出ました。${steps}回行動し、合計${formatSigned(cumulativeReward)}点、餌${foods}個でした。`;
-    addLog(`[自動で見る] 完了：${experienceMessage}`);
+    experienceMessage = `${run.targetEpisodes}回の試行が終わりました。合計${formatSigned(totalReward)}点、餌${totalFoods}個です。履歴で回ごとの変化を見られます。`;
+    addLog(`[RL連続] 完了：${run.targetEpisodes}エピソード、合計報酬${totalReward}、餌${totalFoods}`);
     render();
     elements['rl-history-chart'].scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) {
+    if (token !== rlContinuousToken) return;
+    run.complete = true;
     experienceState = 'ready';
-    experienceMessage = `自動実行を完了できませんでした：${error.message}`;
+    experienceMessage = `連続実行を完了できませんでした：${error.message}`;
+    addLog(`[RLエラー] 連続実行を中止：${error.message}`);
     render();
   }
 }
 
+function startContinuousRlEpisodes({
+  count = CONTINUOUS_EPISODE_DEFAULTS.count,
+  confirmDiscard = true,
+} = {}) {
+  pauseAuto();
+  if (rlContinuousRun?.paused) {
+    rlContinuousRun.paused = false;
+    experienceState = 'running';
+    experienceMessage = `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}エピソードから再開します。`;
+    addLog('[RL連続] 再開');
+    render();
+    void continueContinuousRlRun(rlContinuousRun);
+    return true;
+  }
+  if (rlContinuousRun && !rlContinuousRun.complete) return false;
+  if (
+    confirmDiscard &&
+    rlEngine &&
+    !rlEngine.isComplete &&
+    rlEngine.index > 0 &&
+    !window.confirm('現在の未完了RLタイムラインを破棄し、連続エピソード表示へ進みますか？')
+  ) return false;
+
+  cancelContinuousRlRun();
+  quickStartMode = 'reinforcement';
+  rlContinuousRun = {
+    targetEpisodes: count,
+    completed: 0,
+    currentEpisodeNumber: null,
+    paused: false,
+    complete: false,
+    summaries: [],
+  };
+  experienceState = 'running';
+  experienceMessage = `0 / ${count}エピソード。小さな世界で試行錯誤を始めます。`;
+  addLog(`[RL連続] ${count}エピソードの表示を開始`);
+  render();
+  elements['rl-grid-board'].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  void continueContinuousRlRun(rlContinuousRun);
+  return true;
+}
+
+function runBeginnerAutoObserve() {
+  startContinuousRlEpisodes({ confirmDiscard: false });
+}
+
 function showBeginnerDetail() {
   pauseAuto();
+  cancelContinuousRlRun({ logMessage: '[RL連続] 詳細表示へ移るため停止' });
   quickStartMode = 'reinforcement';
   if (!rlEngine && !startRlEpisode({ confirmDiscard: false })) return;
   rlEngine.first();
@@ -1048,6 +1171,7 @@ async function loadState(file) {
   const text = await file.text();
   const restored = parseStateJson(text);
   pauseAuto();
+  cancelContinuousRlRun();
   inputs = restored.inputs;
   targetIndex = restored.targetIndex;
   learningRate = restored.learningRate;
@@ -1167,36 +1291,13 @@ function runRlToEnd() {
 }
 
 function runTenRlEpisodes() {
-  pauseAuto();
-  if (
-    rlEngine &&
-    !rlEngine.isComplete &&
-    rlEngine.index > 0 &&
-    !window.confirm('現在の未完了RLタイムラインを破棄し、10エピソード連続実行へ進みますか？')
-  ) return;
-  rememberRlSessionStart();
-  try {
-    const firstEpisode = rlNextEpisodeNumber;
-    for (let offset = 0; offset < 10; offset += 1) {
-      const episodeNumber = rlNextEpisodeNumber;
-      const config = readRlConfig(episodeNumber);
-      const episodeWorld = createRlEpisodeWorld(episodeNumber);
-      rlEngine = new ReinforcementStepEngine(engine.current.network, episodeWorld, config);
-      rlEngine.runToEnd();
-      commitRlEpisodeIfComplete();
-    }
-    addLog(`[RL一括] エピソード${firstEpisode}〜${rlNextEpisodeNumber - 1}を連続実行`);
-    render();
-  } catch (error) {
-    elements['status-message'].textContent = `10エピソード連続実行を中止：${error.message}`;
-    addLog(`[RLエラー] ${error.message}`);
-    render();
-  }
+  startContinuousRlEpisodes();
 }
 
 function resetRlSession() {
   if (!rlSessionStartNetwork) return;
   if (!window.confirm('このRLセッションで行った全エピソード更新と履歴を取り消しますか？')) return;
+  cancelContinuousRlRun();
   const restoredNetwork = cloneNetwork(rlSessionStartNetwork);
   const restoredWorld = cloneGridWorld(rlSessionStartWorld);
   const restoredInputs = [...rlSessionStartInputs];
@@ -1221,6 +1322,7 @@ function bindEvents() {
   });
   elements['quick-reinforcement'].addEventListener('click', runBeginnerAutoObserve);
   elements['quick-explore'].addEventListener('click', showBeginnerDetail);
+  elements['experience-pause'].addEventListener('click', pauseContinuousRlRun);
 
   elements['apply-preset'].addEventListener('click', () => {
     const preset = PRESETS[elements['preset-select'].value];
@@ -1271,6 +1373,7 @@ function bindEvents() {
     render();
   });
   elements['rl-start-episode'].addEventListener('click', () => {
+    cancelContinuousRlRun({ logMessage: '[RL連続] 手動エピソード開始のため停止' });
     startRlEpisode();
     if (quickStartMode === 'reinforcement') moveQuickStartToCurrentAction();
   });
@@ -1372,6 +1475,7 @@ function bindEvents() {
     const seed = elements['seed-input'].value.trim() || 'glassbox-1';
     if (!window.confirm(`シード「${seed}」から39パラメータを再初期化し、ログを含む全履歴を削除します。続けますか？`)) return;
     pauseAuto();
+    cancelContinuousRlRun();
     operationLog.clear();
     clearRlSession();
     engine = new StepEngine(createNetwork(seed), inputs);

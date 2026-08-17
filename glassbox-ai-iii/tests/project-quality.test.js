@@ -18,6 +18,9 @@ test('Glassbox AI IIIのcanonical UIは強化学習だけを通常表示する',
   assert.match(html, /小さな世界で行動し、結果を受け取る/);
   assert.match(html, /id="quick-reinforcement"[^>]+data-experience-mode="auto"/);
   assert.match(html, /自動で見る/);
+  assert.match(html, /id="experience-pause"/);
+  assert.match(html, /id="experience-speed"/);
+  assert.match(html, /id="experience-progress"/);
 });
 
 test('初回ガイドは既存の実計算操作へ案内する', async () => {
@@ -27,8 +30,10 @@ test('初回ガイドは既存の実計算操作へ案内する', async () => {
   assert.match(app, /elements\['start-learning'\]/);
   assert.match(app, /elements\['rl-start-episode'\]/);
   assert.match(app, /elements\['rl-run-end'\]/);
-  assert.match(app, /async function runBeginnerAutoObserve\(\)/);
-  assert.match(app, /runRlToEnd\(\)/);
+  assert.match(app, /function runBeginnerAutoObserve\(\)/);
+  assert.match(app, /startContinuousRlEpisodes/);
+  assert.match(app, /advanceToReinforcementVisualBoundary/);
+  assert.match(app, /function pauseContinuousRlRun\(\)/);
   assert.match(app, /function showBeginnerDetail\(\)/);
 });
 

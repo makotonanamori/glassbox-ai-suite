@@ -13,12 +13,14 @@ Glassbox AI Suiteの利用者向け変更履歴です。
 
 - 検証済み公開baselineと今後の変更を追跡する、このCHANGELOGを追加。
 - `docs/AUTO_OBSERVE_UX.md`へ、`ready / running / complete / detail`状態、共通DOM契約、実値一致、後続animation Phaseを記録。
+- Glassbox AI IIIへ、10エピソードの実移動を時間方向に表示する連続runner、一時停止・再開、0.5 / 1 / 2 / 4倍の速度切替、進捗表示を追加。
 
 ### Changed
 
 - README冒頭の導線を「ブラウザですぐ試す」→「ローカルで実行する」→「開発・テストする」に再構成し、GitHub Pagesと各教材への直接linkを追加。
 - Series landingを「まず動かす → 結果を見る」入口へ変更し、I / II / IIIすべてに`自動で見る（おすすめ）`と`1ステップずつ詳しく見る`の共通二段構造を追加。
 - Iの1回教師あり学習、IIの1 Training Step、IIIの1 Episodeを、既存の実計算engineを使う1クリック観察へ接続。
+- IIIの`自動で見る`と`10エピソードを自動で見る`を同じ連続runnerへ統一し、実環境遷移ごとの世界表示とエピソードごとの履歴更新へ変更。
 
 第三者初心者testで得られたfeedbackに基づく変更は、実装時にこの章へ追加します。将来計画は[ROADMAP.md](./ROADMAP.md)を参照してください。
 

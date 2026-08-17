@@ -25,7 +25,7 @@
 ## Now — v1.x OSS readiness
 
 - [x] I / II / IIIへ「自動で見る」→「1ステップずつ詳しく見る」の共通入口を実装する
-- [ ] Glassbox AI IIIで連続Episodeの試行錯誤を時間方向に表示する
+- [x] Glassbox AI IIIで連続Episodeの試行錯誤を時間方向に表示する
 - [x] CHANGELOGを作成し、検証済み公開baselineを履歴化する
 - [ ] 初回release / tagを作成し、versioned releaseを固定する
 - [ ] 第三者が説明なしでI → II → IIIを完走する初心者user testを行う

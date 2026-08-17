@@ -11,6 +11,10 @@ import {
   ReinforcementStepEngine,
   buildReinforcementTimeline,
 } from '../src/reinforcement-learning.js';
+import {
+  advanceToReinforcementVisualBoundary,
+  continuousEpisodeDelay,
+} from '../src/continuous-episode-runner.js';
 
 test('4報酬プリセットが実際の遷移種別へ異なる値を適用する', () => {
   assert.equal(Object.keys(REWARD_PROFILES).length, 4);
@@ -92,6 +96,33 @@ test('RLステップ実行と一括実行の最終スナップショットが一
   assert.deepEqual(stepped.current.network, bulk.current.network);
   assert.deepEqual(stepped.current.world, bulk.current.world);
   assert.deepEqual(stepped.summary, bulk.summary);
+});
+
+test('連続表示の実移動境界を通っても一括実行と同じ最終状態になる', () => {
+  const network = createNetwork('rl-visible-boundary-equivalence');
+  const world = createGridWorld('rl-visible-boundary-world');
+  const options = { randomSeed: 'rl-visible-boundary-random', maxSteps: 7, rewardProfile: 'balanced' };
+  const animated = new ReinforcementStepEngine(network, world, options);
+  const bulk = new ReinforcementStepEngine(network, world, options);
+  const stages = [];
+
+  while (animated.canGoNext) {
+    const boundary = advanceToReinforcementVisualBoundary(animated, (step) => stages.push(step.stage));
+    assert.equal(['rl-transition', 'rl-comparison'].includes(boundary.step.stage), true);
+  }
+  bulk.runToEnd();
+
+  assert.equal(stages.filter((stage) => stage === 'rl-transition').length, animated.summary.steps);
+  assert.equal(stages.includes('rl-update'), true);
+  assert.deepEqual(animated.current.network, bulk.current.network);
+  assert.deepEqual(animated.current.world, bulk.current.world);
+  assert.deepEqual(animated.summary, bulk.summary);
+});
+
+test('連続表示速度は実計算と独立した正の待機時間へ変換される', () => {
+  assert.equal(continuousEpisodeDelay(4) < continuousEpisodeDelay(1), true);
+  assert.equal(continuousEpisodeDelay(2, 'episode') > continuousEpisodeDelay(2), true);
+  assert.throws(() => continuousEpisodeDelay(0), /0より大きい/);
 });
 
 test('前のRLステップで世界・ネットワーク・部分更新を完全復元する', () => {

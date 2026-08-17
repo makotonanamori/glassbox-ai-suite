@@ -121,6 +121,7 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - 7×7 Grid World、5 sensor、温度付き確率方策
 - 環境履歴、探索/活用、累積報酬、割引Return
 - REINFORCE方策勾配と全39 Parameter更新
+- 10エピソードの実移動を連続表示し、一時停止・再開・速度変更
 - 完全snapshotのRL専用因果timeline、履歴JSON、Seed再現
 
 ## 三つの学習信号
