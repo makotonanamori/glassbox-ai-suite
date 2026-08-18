@@ -43,9 +43,9 @@
       </div>
       <div class="quick-start-paths" aria-label="観察コース">
         <button id="quick-supervised" type="button" class="quick-path primary selected" aria-pressed="true" data-experience-mode="auto">
-          <span>おすすめ · 1クリック</span>
+          <span>おすすめ · 139段階を自動再生</span>
           <strong>▶ 自動で見る</strong>
-          <small>実際の計算で、学習前と学習後の結果を比べます</small>
+          <small>予測、誤差、更新、結果の変化を順番に見ます</small>
         </button>
         <button id="quick-reinforcement" type="button" class="quick-path" aria-pressed="false" hidden data-legacy-compatibility>
           <span>第三弾 · 別タイムライン</span>
@@ -63,6 +63,17 @@
         <li data-flow-step="motion">2 動く</li>
         <li data-flow-step="result">3 結果</li>
       </ol>
+      <div class="experience-run-controls" aria-label="教師あり学習の再生操作">
+        <button id="experience-pause" type="button" disabled>一時停止</button>
+        <label for="experience-speed">速さ</label>
+        <select id="experience-speed">
+          <option value="0.5">0.5倍</option>
+          <option value="1">1倍</option>
+          <option value="2">2倍</option>
+          <option value="4" selected>4倍</option>
+        </select>
+        <strong id="experience-progress">0 / 139 ステップ</strong>
+      </div>
       <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite">「自動で見る」を押してください。</div>
     </section>
 

@@ -30,6 +30,11 @@ import {
 import { REWARD_PROFILES, getRewardProfile } from './reward-profiles.js';
 import { ReinforcementStepEngine, RL_DEFAULTS } from './reinforcement-learning.js';
 import { serializeReinforcementHistory } from './reinforcement-history.js';
+import {
+  SUPERVISED_PLAYBACK_DEFAULTS,
+  advanceSupervisedPlayback,
+  supervisedPlaybackDelay,
+} from './supervised-playback.js';
 
 const PRESETS = Object.freeze({
   simple: { label: 'プリセット1：単純な入力', inputs: [0.8, 0, 0, 0, 0], targetIndex: 0 },
@@ -45,6 +50,7 @@ const elements = Object.fromEntries(
     'input-controls', 'preset-select', 'apply-preset', 'seed-input', 'learning-rate', 'precision-select',
     'network-svg', 'connection-inspector', 'phase-value', 'step-value', 'learning-count', 'status-message',
     'quick-supervised', 'quick-reinforcement', 'quick-explore', 'quick-start-status',
+    'experience-pause', 'experience-speed', 'experience-progress',
     'timeline-first', 'step-previous', 'step-next', 'run-to-end', 'auto-play', 'auto-pause', 'speed-select',
     'step-progress', 'step-title', 'step-description', 'formula-display', 'natural-explanation',
     'target-controls', 'start-learning', 'comparison', 'parameter-body', 'parameter-count',
@@ -83,6 +89,8 @@ let rlSessionStartWorld = null;
 let rlSessionStartInputs = null;
 const operationLog = new OperationLog();
 let autoTimer = null;
+let supervisedPlaybackRun = null;
+let supervisedPlaybackToken = 0;
 let quickStartMode = requestedQuickStartModes.has(quickStartRequest) ? quickStartRequest : 'supervised';
 let experienceState = quickStartMode === 'explore' ? 'detail' : 'ready';
 let experienceMessage = experienceState === 'detail'
@@ -198,6 +206,7 @@ function syncInputsToControls() {
 
 function resetCalculation(message = '[リセット] 計算だけリセット（現在のパラメータを維持）') {
   pauseAuto();
+  cancelSupervisedPlayback();
   const currentNetwork = cloneNetwork(engine.current.network);
   engine = new StepEngine(currentNetwork, inputs);
   addLog(message);
@@ -894,13 +903,22 @@ function renderLog() {
 function renderQuickStartGuide() {
   const entry = document.querySelector('[data-experience-entry]');
   entry.dataset.experienceState = experienceState;
+  const playbackActive = Boolean(supervisedPlaybackRun && !supervisedPlaybackRun.complete);
+  const playbackPaused = Boolean(playbackActive && supervisedPlaybackRun.paused);
+  entry.dataset.playbackState = playbackPaused ? 'paused' : (playbackActive ? 'running' : 'idle');
   const autoSelected = experienceState !== 'detail';
   elements['quick-supervised'].classList.toggle('selected', autoSelected);
   elements['quick-supervised'].setAttribute('aria-pressed', String(autoSelected));
   elements['quick-explore'].classList.toggle('selected', !autoSelected);
   elements['quick-explore'].setAttribute('aria-pressed', String(!autoSelected));
-  elements['quick-supervised'].disabled = experienceState === 'running';
-  elements['quick-explore'].disabled = experienceState === 'running';
+  elements['quick-supervised'].disabled = playbackActive && !playbackPaused;
+  elements['quick-supervised'].querySelector('strong').textContent = playbackPaused
+    ? '▶ 続ける'
+    : (playbackActive ? '動いています…' : '▶ 自動で見る');
+  elements['experience-pause'].disabled = !playbackActive || playbackPaused;
+  elements['experience-progress'].textContent = supervisedPlaybackRun
+    ? `${supervisedPlaybackRun.completedSteps} / ${supervisedPlaybackRun.totalSteps} ステップ`
+    : `0 / ${SUPERVISED_PLAYBACK_DEFAULTS.totalSteps} ステップ`;
 
   const flowState = experienceState === 'detail' ? 'ready' : experienceState;
   const flowOrder = { ready: 0, running: 1, complete: 2 };
@@ -912,41 +930,131 @@ function renderQuickStartGuide() {
   elements['quick-start-status'].textContent = experienceMessage;
 }
 
-async function runBeginnerAutoObserve() {
-  if (experienceState === 'running') return;
-  pauseAuto();
-  quickStartMode = 'supervised';
-  experienceState = 'running';
-  experienceMessage = '動いています。予測して、1回学習し、もう一度結果を計算しています。';
-  renderQuickStartGuide();
-  await new Promise((resolve) => window.requestAnimationFrame(resolve));
+function beginnerPlaybackMessage(step) {
+  if (step.stage === 'input') return '5個の入力を数値として確定しました。ここから予測を作ります。';
+  if (['hidden-product', 'hidden-sum', 'tanh', 'output-product', 'logit'].includes(step.stage)) {
+    return `予測を作っています。${step.title}`;
+  }
+  if (step.stage === 'softmax') return '3つの選択肢が、合計100%の確率になりました。';
+  if (step.stage === 'argmax') return `${step.title}。次に正解との差を測ります。`;
+  if (step.stage === 'one-hot') return `今回の正解「${OUTPUT_NAMES[targetIndex]}」を数値にしました。`;
+  if (step.stage === 'loss') return `予測と正解のずれを測りました。ずれの大きさは${formatNumber(step.training.loss)}です。`;
+  if (step.stage.startsWith('gradient-') || ['output-error', 'propagate-hidden', 'tanh-derivative'].includes(step.stage)) {
+    return `正解との差を、関係した数字へ戻しています。${step.title}`;
+  }
+  if (step.stage === 'update-weight' || step.stage === 'update-bias') {
+    return `学習中です。${step.title}`;
+  }
+  if (step.stage === 'forward-after-update') return '数字を更新したネットワークで、同じ入力をもう一度予測しました。';
+  if (step.stage === 'comparison') return '学習前と学習後を比べています。';
+  return step.title;
+}
 
+function waitForSupervisedPlayback(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function cancelSupervisedPlayback({ logMessage = null } = {}) {
+  const wasActive = Boolean(supervisedPlaybackRun && !supervisedPlaybackRun.complete);
+  supervisedPlaybackToken += 1;
+  supervisedPlaybackRun = null;
+  if (wasActive && logMessage) addLog(logMessage);
+  return wasActive;
+}
+
+function pauseSupervisedPlayback() {
+  if (!supervisedPlaybackRun || supervisedPlaybackRun.complete || supervisedPlaybackRun.paused) return;
+  supervisedPlaybackToken += 1;
+  supervisedPlaybackRun.paused = true;
+  experienceState = 'running';
+  experienceMessage = `${engine.index} / ${supervisedPlaybackRun.totalSteps}ステップで一時停止しました。「続ける」で再開できます。`;
+  addLog(`[教師あり自動再生] ${engine.index}/${supervisedPlaybackRun.totalSteps}で一時停止`);
+  render();
+}
+
+async function continueSupervisedPlayback(run) {
+  const token = ++supervisedPlaybackToken;
   try {
-    clearRlSession('[RL] 初心者向け自動実行により既存の強化学習セッションを失効');
-    engine = new StepEngine(cloneNetwork(engine.current.network), inputs);
-    addLog('[自動で見る] 教師あり学習を開始');
-    while (engine.canGoNext) addLog(engine.next().logMessage);
-    engine.appendLearning(targetIndex, learningRate);
-    lastLearningUndoNetwork = engine.getUndoNetwork();
-    while (engine.canGoNext) addLog(engine.next().logMessage);
+    while (token === supervisedPlaybackToken && !run.paused) {
+      const result = advanceSupervisedPlayback(engine, {
+        targetIndex,
+        learningRate,
+        onStep: (step) => addLog(step.logMessage),
+      });
+      if (!result.advanced) break;
+      if (result.appendedLearning) {
+        lastLearningUndoNetwork = engine.getUndoNetwork();
+        run.totalSteps = engine.length - 1;
+        addLog(`[学習] 学習ステップを開始：正解${OUTPUT_NAMES[targetIndex]}、学習率${learningRate}`);
+      }
+      run.completedSteps = engine.index;
+      experienceMessage = beginnerPlaybackMessage(result.step);
+      render();
+      if (result.complete) break;
+      await waitForSupervisedPlayback(supervisedPlaybackDelay(elements['experience-speed'].value));
+    }
+
+    if (token !== supervisedPlaybackToken || run.paused) return;
+    run.complete = true;
     const comparison = engine.current.training.comparison;
     experienceState = 'complete';
     experienceMessage =
       `結果が出ました。正解「${OUTPUT_NAMES[targetIndex]}」の選ばれやすさが ` +
       `${formatNumber(comparison.targetProbabilityBefore * 100)}% → ` +
       `${formatNumber(comparison.targetProbabilityAfter * 100)}% に変わりました。`;
-    addLog(`[自動で見る] 完了：${experienceMessage}`);
+    addLog(`[教師あり自動再生] 完了：${experienceMessage}`);
     render();
     elements.comparison.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) {
+    if (token !== supervisedPlaybackToken) return;
+    run.complete = true;
     experienceState = 'ready';
-    experienceMessage = `自動実行を完了できませんでした：${error.message}`;
+    experienceMessage = `自動再生を完了できませんでした：${error.message}`;
+    addLog(`[教師ありエラー] 自動再生を中止：${error.message}`);
     render();
   }
 }
 
+function startSupervisedPlayback() {
+  pauseAuto();
+  if (supervisedPlaybackRun?.paused) {
+    supervisedPlaybackRun.paused = false;
+    experienceState = 'running';
+    experienceMessage = `${engine.index} / ${supervisedPlaybackRun.totalSteps}ステップから再開します。`;
+    addLog('[教師あり自動再生] 再開');
+    render();
+    void continueSupervisedPlayback(supervisedPlaybackRun);
+    return true;
+  }
+  if (supervisedPlaybackRun && !supervisedPlaybackRun.complete) return false;
+
+  cancelSupervisedPlayback();
+  quickStartMode = 'supervised';
+  clearRlSession('[RL] 初心者向け自動再生により既存の強化学習セッションを失効');
+  engine = new StepEngine(cloneNetwork(engine.current.network), inputs);
+  lastLearningUndoNetwork = null;
+  supervisedPlaybackRun = {
+    completedSteps: 0,
+    totalSteps: SUPERVISED_PLAYBACK_DEFAULTS.totalSteps,
+    paused: false,
+    complete: false,
+  };
+  experienceState = 'running';
+  experienceMessage = '0 / 139ステップ。入力から予測を作り始めます。';
+  addLog('[教師あり自動再生] 139ステップの表示を開始');
+  render();
+  elements['network-svg'].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  void continueSupervisedPlayback(supervisedPlaybackRun);
+  return true;
+}
+
+function runBeginnerAutoObserve() {
+  startSupervisedPlayback();
+}
+
 function showBeginnerDetail() {
   pauseAuto();
+  cancelSupervisedPlayback({ logMessage: '[教師あり自動再生] 詳細表示へ移るため停止' });
   quickStartMode = 'explore';
   experienceState = 'detail';
   experienceMessage = '同じ計算を先頭へ戻しました。「次のステップ」で1つずつ確認できます。';
@@ -1004,6 +1112,27 @@ function render() {
   elements['auto-pause'].disabled = !autoTimer;
   syncInputsToControls();
   syncTargetControls();
+
+  const playbackActive = Boolean(supervisedPlaybackRun && !supervisedPlaybackRun.complete);
+  if (playbackActive) {
+    elements['timeline-first'].disabled = true;
+    elements['step-previous'].disabled = true;
+    elements['step-next'].disabled = true;
+    elements['run-to-end'].disabled = true;
+    elements['start-learning'].disabled = true;
+    elements['undo-learning'].disabled = true;
+    elements['auto-play'].disabled = true;
+    elements['auto-pause'].disabled = true;
+  }
+  [
+    'preset-select', 'apply-preset', 'seed-input', 'learning-rate',
+    'calculation-reset', 'full-reset', 'save-state', 'load-state-file',
+  ].forEach((id) => {
+    elements[id].disabled = playbackActive;
+  });
+  document.querySelectorAll('#input-controls input, #target-controls input').forEach((control) => {
+    control.disabled = playbackActive;
+  });
 }
 
 function advanceOne({ log = true } = {}) {
@@ -1053,6 +1182,7 @@ async function loadState(file) {
   const text = await file.text();
   const restored = parseStateJson(text);
   pauseAuto();
+  cancelSupervisedPlayback();
   inputs = restored.inputs;
   targetIndex = restored.targetIndex;
   learningRate = restored.learningRate;
@@ -1226,6 +1356,7 @@ function bindEvents() {
     moveQuickStartToCurrentAction();
   });
   elements['quick-explore'].addEventListener('click', showBeginnerDetail);
+  elements['experience-pause'].addEventListener('click', pauseSupervisedPlayback);
 
   elements['apply-preset'].addEventListener('click', () => {
     const preset = PRESETS[elements['preset-select'].value];
@@ -1320,19 +1451,25 @@ function bindEvents() {
 
   elements['timeline-first'].addEventListener('click', () => {
     pauseAuto();
+    cancelSupervisedPlayback();
     engine.first();
     addLog('[操作] タイムラインの最初へ戻る（スナップショット復元）');
     render();
   });
   elements['step-previous'].addEventListener('click', () => {
     pauseAuto();
+    cancelSupervisedPlayback();
     engine.previous();
     addLog(`[操作] 前のステップへ戻る：${engine.current.title}`);
     render();
   });
-  elements['step-next'].addEventListener('click', () => advanceOne());
+  elements['step-next'].addEventListener('click', () => {
+    cancelSupervisedPlayback();
+    advanceOne();
+  });
   elements['run-to-end'].addEventListener('click', () => {
     pauseAuto();
+    cancelSupervisedPlayback();
     let count = 0;
     while (engine.canGoNext) {
       const step = engine.next();
@@ -1351,6 +1488,7 @@ function bindEvents() {
 
   elements['start-learning'].addEventListener('click', () => {
     pauseAuto();
+    cancelSupervisedPlayback();
     try {
       clearRlSession('[RL] 教師あり学習開始により既存の強化学習セッションを失効');
       engine.appendLearning(targetIndex, learningRate);
@@ -1367,6 +1505,7 @@ function bindEvents() {
   elements['undo-learning'].addEventListener('click', () => {
     if (!lastLearningUndoNetwork) return;
     pauseAuto();
+    cancelSupervisedPlayback();
     clearRlSession('[RL] 学習取消により既存の強化学習セッションを失効');
     engine = new StepEngine(lastLearningUndoNetwork, inputs);
     lastLearningUndoNetwork = null;
@@ -1377,6 +1516,7 @@ function bindEvents() {
     const seed = elements['seed-input'].value.trim() || 'glassbox-1';
     if (!window.confirm(`シード「${seed}」から39パラメータを再初期化し、ログを含む全履歴を削除します。続けますか？`)) return;
     pauseAuto();
+    cancelSupervisedPlayback();
     operationLog.clear();
     clearRlSession();
     engine = new StepEngine(createNetwork(seed), inputs);

@@ -18,6 +18,9 @@ test('Glassbox AI Iのcanonical UIは教師あり学習だけを通常表示す�
   assert.match(html, /data-experience-entry/);
   assert.match(html, /id="quick-supervised"[^>]+data-experience-mode="auto"/);
   assert.match(html, /id="quick-explore"[^>]+data-experience-mode="detail"/);
+  assert.match(html, /id="experience-pause"/);
+  assert.match(html, /id="experience-speed"/);
+  assert.match(html, /id="experience-progress"/);
 });
 
 test('初回ガイドは既存の実計算操作へ案内する', async () => {
@@ -27,8 +30,10 @@ test('初回ガイドは既存の実計算操作へ案内する', async () => {
   assert.match(app, /elements\['start-learning'\]/);
   assert.match(app, /elements\['rl-start-episode'\]/);
   assert.match(app, /elements\['rl-run-end'\]/);
-  assert.match(app, /async function runBeginnerAutoObserve\(\)/);
-  assert.match(app, /engine\.appendLearning\(targetIndex, learningRate\)/);
+  assert.match(app, /function runBeginnerAutoObserve\(\)/);
+  assert.match(app, /startSupervisedPlayback/);
+  assert.match(app, /advanceSupervisedPlayback/);
+  assert.match(app, /function pauseSupervisedPlayback\(\)/);
   assert.match(app, /function showBeginnerDetail\(\)/);
 });
 

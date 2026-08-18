@@ -102,6 +102,7 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - 5入力→4中間→3出力
 - tanh、softmax、cross entropy、SGD
 - 教師あり139ステップ数学タイムライン
+- 139 snapshotの自動再生、一時停止・再開、速度変更
 - JSON保存、Seed再現、全39勾配チェック
 
 このdirectoryのcanonicalな責務は教師あり学習です。分離前のGrid World / REINFORCE実装は保存形式と回帰検証の互換層として内部に凍結保持しますが、通常UIとシリーズ導線には表示しません。

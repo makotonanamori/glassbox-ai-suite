@@ -309,6 +309,35 @@ h1 {
   color: var(--green);
 }
 
+.experience-run-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.experience-run-controls label,
+.experience-run-controls strong {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.experience-run-controls select {
+  width: auto;
+  min-width: 78px;
+}
+
+.experience-run-controls strong {
+  margin-left: auto;
+  color: var(--cyan);
+}
+
+[data-experience-state="running"] .experience-run-controls strong {
+  color: var(--yellow);
+}
+
 [data-experience-state="running"] [data-experience-mode="auto"] {
   cursor: wait;
 }
