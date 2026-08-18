@@ -2,6 +2,7 @@ import { LanguageDataset, DEFAULT_CORPUS } from "../training/dataset.js";
 import { TinyTransformer } from "../model/transformer.js";
 import { Trainer } from "../training/trainer.js";
 import { ForwardStepEngine, FORWARD_STAGES } from "../model/step-engine.js";
+import { LANGUAGE_PLAYBACK_STAGES, languagePlaybackDelay } from "./auto-playback.js";
 import { SeededRandom } from "../utils/rng.js";
 import { stableSoftmax, relativeError, stats } from "../utils/math.js";
 import { exportApplicationState, importApplicationState } from "../utils/serialization.js";
@@ -30,6 +31,12 @@ let generationCounter = 0;
 let firstRunMode = firstRunRequest === "training" ? "training" : "forward";
 let experienceState = "ready";
 let experienceMessage = "「自動で見る」を押してください。";
+let experiencePlaybackRun = null;
+let experiencePlaybackToken = 0;
+let trainingPlaybackSession = null;
+let trainingPlaybackPhase = "";
+let lastAutoPredictionTrace = null;
+let lastAutoPredictionPrompt = null;
 
 function precision() { return Number($("#precision").value); }
 function fmt(value) { return formatter(precision())(value); }
@@ -47,13 +54,24 @@ function selectTab(name) {
 function renderFirstRunGuide() {
   const entry = $("[data-experience-entry]");
   entry.dataset.experienceState = experienceState;
+  const playbackActive = Boolean(experiencePlaybackRun && !experiencePlaybackRun.complete);
+  const playbackPaused = Boolean(playbackActive && experiencePlaybackRun.paused);
+  entry.dataset.playbackState = playbackPaused ? "paused" : (playbackActive ? "running" : "idle");
   const autoSelected = experienceState !== "detail";
   $("#guide-forward").classList.toggle("selected", autoSelected);
   $("#guide-forward").setAttribute("aria-pressed", String(autoSelected));
   $("#guide-training").classList.toggle("selected", !autoSelected);
   $("#guide-training").setAttribute("aria-pressed", String(!autoSelected));
-  $("#guide-forward").disabled = experienceState === "running";
-  $("#guide-training").disabled = experienceState === "running";
+  $("#guide-forward").disabled = playbackActive && !playbackPaused;
+  $("#guide-forward strong").textContent = playbackPaused
+    ? "▶ 続ける"
+    : (playbackActive ? "動いています…" : "▶ 自動で見る（おすすめ）");
+  $("#guide-training").disabled = false;
+  $("#experience-pause").disabled = !playbackActive || playbackPaused;
+  $("#experience-progress").textContent = experiencePlaybackRun
+    ? `${experiencePlaybackRun.completedStages} / ${experiencePlaybackRun.totalStages} 段階`
+    : `0 / ${LANGUAGE_PLAYBACK_STAGES.length} 段階`;
+  setExperienceControlsLocked(playbackActive);
 
   const flowState = experienceState === "detail" ? "ready" : experienceState;
   const flowOrder = { ready: 0, running: 1, complete: 2 };
@@ -63,6 +81,24 @@ function renderFirstRunGuide() {
     item.classList.toggle("active", index === current);
   });
   $("#first-run-status").textContent = experienceMessage;
+}
+
+function setExperienceControlsLocked(locked) {
+  const controls = [
+    "#prepare-forward", "#forward-previous", "#forward-next", "#forward-run", "#forward-reset",
+    "#generate-one", "#generate-many", "#train-one", "#auto-train", "#pause-train", "#reinitialize",
+    "#seed-input", "#learning-rate", "#clip-norm", "#prompt-input", "#sampling-mode", "#temperature", "#generation-count",
+  ];
+  if (locked) {
+    controls.forEach((selector) => { const element = $(selector); if (element) element.disabled = true; });
+    $$('[data-train-count]').forEach((button) => { button.disabled = true; });
+    return;
+  }
+  controls.forEach((selector) => { const element = $(selector); if (element) element.disabled = false; });
+  $("#forward-previous").disabled = !currentTrace || engine.index <= 0;
+  $("#forward-next").disabled = !currentTrace || engine.index >= FORWARD_STAGES.length - 1;
+  $("#pause-train").disabled = !autoTraining;
+  $$('[data-train-count]').forEach((button) => { button.disabled = false; });
 }
 
 function focusFirstRunTarget() {
@@ -77,36 +113,205 @@ function focusTrainingGuide() {
   target.focus({ preventScroll: true });
 }
 
-async function runBeginnerAutoObserve() {
-  if (experienceState === "running") return;
-  firstRunMode = "training";
-  experienceState = "running";
-  experienceMessage = "動いています。文章から予測し、1回学習して、もう一度結果を計算しています。";
-  selectTab("training");
-  renderFirstRunGuide();
-  await new Promise((resolve) => window.requestAnimationFrame(resolve));
-  await runTraining(1);
+function cancelLanguagePlayback() {
+  experiencePlaybackToken += 1;
+  if (trainingPlaybackSession && !trainingPlaybackSession.updateComplete) model?.zeroGrad();
+  experiencePlaybackRun = null;
+  trainingPlaybackSession = null;
+  trainingPlaybackPhase = "";
+}
 
-  if (!lastTrainingResult) {
-    experienceState = "ready";
-    experienceMessage = "自動実行を完了できませんでした。画面上部の停止理由を確認してください。";
-    renderFirstRunGuide();
+function pauseLanguagePlayback() {
+  if (!experiencePlaybackRun || experiencePlaybackRun.complete || experiencePlaybackRun.paused) return;
+  experiencePlaybackToken += 1;
+  experiencePlaybackRun.paused = true;
+  experienceState = "running";
+  experienceMessage = `${experiencePlaybackRun.completedStages} / ${experiencePlaybackRun.totalStages}段階で一時停止しました。「続ける」で再開できます。`;
+  renderFirstRunGuide();
+}
+
+function playbackMessage(stage, run) {
+  if (stage.phase === "prediction") {
+    if (stage.forwardIndex === 0) return "文章をTokenとIDへ分けました。ここから次の言葉を予測します。";
+    if (stage.forwardIndex < 6) return `言葉を数値へ変換しています。${stage.label}`;
+    if (stage.forwardIndex < 10) return `過去のどのTokenを見るか計算しています。${stage.label}`;
+    if (stage.forwardIndex < 15) return `見つけた情報を混ぜ、次Token候補の点数へ変換しています。${stage.label}`;
+    const top = topPrediction(run.predictionTrace);
+    return `開始時の予測が出ました。最有力は「${top.token}」${(top.probability * 100).toFixed(2)}%です。`;
+  }
+  if (stage.key === "training:forward") return "教材Corpusから1例を選び、正解の次Tokenと予測を比べました。";
+  if (stage.key === "training:loss") return `予測のずれを測りました。Lossは${fmt(trainingPlaybackSession.lossBefore)}です。`;
+  if (stage.key === "training:backward") return `ずれをParameterへ戻しました。Gradient normは${fmt(trainingPlaybackSession.rawGradientNorm)}です。`;
+  if (stage.key === "training:gradient") return `更新前にGradientの大きさを確認しました。Clip scaleは${fmt(trainingPlaybackSession.clipScale)}です。`;
+  if (stage.key === "training:update") return `数字を更新しました。学習例のLossは${fmt(run.trainingResult.lossBefore)} → ${fmt(run.trainingResult.lossAfter)}です。`;
+  if (stage.forwardIndex === 0) return "更新したmodelで、入力文から生成用の計算を始めます。";
+  if (stage.forwardIndex < 6) return `生成する文脈を数値へ変換しています。${stage.label}`;
+  if (stage.forwardIndex < 10) return `生成前のAttentionを計算しています。${stage.label}`;
+  if (stage.forwardIndex < 15) return `生成候補の点数を作っています。${stage.label}`;
+  if (stage.key === "generation:select") return `確率から「${run.generated.token}」を選び、入力の末尾へ追加しました。`;
+  const top = topPrediction(run.generationTrace);
+  return `更新後の確率が出ました。最有力は「${top.token}」${(top.probability * 100).toFixed(2)}%です。`;
+}
+
+function appendGeneratedToken(trace) {
+  const [rows, cols] = trace.logits.shape;
+  const logits = trace.logits.data.slice((rows - 1) * cols, rows * cols);
+  const nextId = chooseToken(logits, $("#sampling-mode").value, Number($("#temperature").value));
+  const token = tokenizer.vocabulary[nextId];
+  const visibleTokens = tokenizer.tokenize($("#prompt-input").value);
+  if (token !== "<EOS>") visibleTokens.push(token);
+  const text = tokenizer.detokenize(visibleTokens);
+  $("#generation-output").textContent = token === "<EOS>" ? `${text} → <EOS>` : text;
+  $("#prompt-input").value = text;
+  return { id: nextId, token, text };
+}
+
+function executeLanguagePlaybackStage(stage, run) {
+  if (stage.phase === "prediction") {
+    currentTrace = run.predictionTrace;
+    if (stage.forwardIndex === 0) engine.load(currentTrace);
+    engine.index = stage.forwardIndex;
+    selectTab("playground");
+    renderForward();
     return;
   }
-  experienceState = "complete";
-  experienceMessage =
-    `結果が出ました。間違いの大きさが ${fmt(lastTrainingResult.lossBefore)} → ` +
-    `${fmt(lastTrainingResult.lossAfter)} に変わりました。`;
+
+  if (stage.phase === "training") {
+    selectTab("training");
+    trainingPlaybackPhase = stage.key.split(":")[1];
+    if (stage.key === "training:forward") {
+      trainer.learningRate = Number($("#learning-rate").value);
+      trainer.clipNorm = Number($("#clip-norm").value);
+      trainingPlaybackSession = trainer.beginStep();
+      lastTrainingResult = null;
+    } else if (stage.key === "training:backward") {
+      trainer.backwardStep(trainingPlaybackSession);
+    } else if (stage.key === "training:update") {
+      trainer.updateStep(trainingPlaybackSession);
+      lastTrainingResult = trainer.finishStep(trainingPlaybackSession);
+      run.trainingResult = lastTrainingResult;
+    }
+    renderTraining();
+    renderParameters();
+    renderSnapshots();
+    return;
+  }
+
+  if (stage.key === "generation:select") {
+    run.generated = appendGeneratedToken(run.generationTrace);
+    renderForward();
+    return;
+  }
+
+  if (stage.forwardIndex === 0) {
+    run.generationTrace = model.forward(promptTokenIds()).trace;
+    currentTrace = run.generationTrace;
+    engine.load(currentTrace);
+  }
+  currentTrace = run.generationTrace;
+  engine.index = stage.forwardIndex;
+  selectTab("playground");
+  renderForward();
+}
+
+async function continueLanguagePlayback(run) {
+  const token = ++experiencePlaybackToken;
+  try {
+    while (token === experiencePlaybackToken && !run.paused && run.nextStage < LANGUAGE_PLAYBACK_STAGES.length) {
+      const stage = LANGUAGE_PLAYBACK_STAGES[run.nextStage];
+      executeLanguagePlaybackStage(stage, run);
+      run.nextStage += 1;
+      run.completedStages = run.nextStage;
+      experienceMessage = playbackMessage(stage, run);
+      renderFirstRunGuide();
+      if (run.nextStage >= LANGUAGE_PLAYBACK_STAGES.length) break;
+      await new Promise((resolve) => window.setTimeout(resolve, languagePlaybackDelay($("#experience-speed").value)));
+    }
+    if (token !== experiencePlaybackToken || run.paused) return;
+    run.complete = true;
+    trainingPlaybackSession = null;
+    trainingPlaybackPhase = "";
+    experienceState = "complete";
+    const before = topPrediction(run.predictionTrace);
+    experienceMessage =
+      `結果が出ました。開始時の最有力は「${before.token}」、1回学習した後に「${run.generated.token}」を生成しました。` +
+      `学習例のLossは${fmt(run.trainingResult.lossBefore)} → ${fmt(run.trainingResult.lossAfter)}です。`;
+    renderTraining();
+    renderFirstRunGuide();
+    $("#generation-output").scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (error) {
+    if (token !== experiencePlaybackToken) return;
+    run.complete = true;
+    trainingPlaybackSession = null;
+    trainingPlaybackPhase = "";
+    experienceState = "ready";
+    experienceMessage = `自動再生を完了できませんでした：${error.message}`;
+    setNotice(experienceMessage, true);
+    renderFirstRunGuide();
+  }
+}
+
+function runBeginnerAutoObserve() {
+  if (experiencePlaybackRun?.paused) {
+    experiencePlaybackRun.paused = false;
+    experienceState = "running";
+    experienceMessage = `${experiencePlaybackRun.completedStages} / ${experiencePlaybackRun.totalStages}段階から再開します。`;
+    renderFirstRunGuide();
+    void continueLanguagePlayback(experiencePlaybackRun);
+    return;
+  }
+  if (experiencePlaybackRun && !experiencePlaybackRun.complete) return;
+
+  cancelLanguagePlayback();
+  autoTraining = false;
+  trainer.learningRate = Number($("#learning-rate").value);
+  trainer.clipNorm = Number($("#clip-norm").value);
+  if (!(trainer.learningRate > 0) || !(trainer.clipNorm > 0)) {
+    setNotice("Learning rateとClip normは正の有限値にしてください。", true);
+    return;
+  }
+  const predictionPrompt = $("#prompt-input").value;
+  const predictionTrace = model.forward(promptTokenIds()).trace;
+  lastAutoPredictionTrace = predictionTrace;
+  lastAutoPredictionPrompt = predictionPrompt;
+  currentTrace = predictionTrace;
+  engine.load(currentTrace);
+  trainingPlaybackSession = null;
+  trainingPlaybackPhase = "";
+  lastTrainingResult = null;
+  $("#generation-output").textContent = "—";
+  experiencePlaybackRun = {
+    predictionTrace,
+    predictionPrompt,
+    generationTrace: null,
+    trainingResult: null,
+    generated: null,
+    completedStages: 0,
+    totalStages: LANGUAGE_PLAYBACK_STAGES.length,
+    nextStage: 0,
+    paused: false,
+    complete: false,
+  };
+  firstRunMode = "forward";
+  experienceState = "running";
+  experienceMessage = `0 / ${LANGUAGE_PLAYBACK_STAGES.length}段階。文章から次の言葉を予測し始めます。`;
+  setNotice("予測 → 1 Training Step → 1 Token生成の自動再生を開始しました。");
   renderFirstRunGuide();
-  $("#training-comparison").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#stage-view").scrollIntoView({ behavior: "smooth", block: "center" });
+  void continueLanguagePlayback(experiencePlaybackRun);
 }
 
 function showBeginnerDetail() {
+  cancelLanguagePlayback();
   firstRunMode = "forward";
   experienceState = "detail";
   experienceMessage = "同じ計算を先頭へ戻しました。「Next」で1つずつ確認できます。";
   selectTab("playground");
-  if (!currentTrace) prepareForward();
+  if (lastAutoPredictionTrace) {
+    if (lastAutoPredictionPrompt != null) $("#prompt-input").value = lastAutoPredictionPrompt;
+    currentTrace = lastAutoPredictionTrace;
+    engine.load(currentTrace);
+  } else if (!currentTrace) prepareForward();
   engine.reset();
   renderForward();
   renderFirstRunGuide();
@@ -114,6 +319,7 @@ function showBeginnerDetail() {
 }
 
 function initialize(seed = 42) {
+  cancelLanguagePlayback();
   dataset = new LanguageDataset(DEFAULT_CORPUS);
   tokenizer = dataset.tokenizer;
   model = new TinyTransformer(tokenizer.vocabulary, { seed });
@@ -129,6 +335,8 @@ function initialize(seed = 42) {
   selectedParameter = "embeddings.token";
   lastTrainingResult = null;
   generationCounter = 0;
+  lastAutoPredictionTrace = null;
+  lastAutoPredictionPrompt = null;
   experienceState = "ready";
   experienceMessage = "「自動で見る」を押してください。";
   $("#seed-input").value = seed;
@@ -289,8 +497,8 @@ function topPrediction(trace) {
 }
 
 function renderTrainingResult() {
-  if (!lastTrainingResult) return;
-  const result = lastTrainingResult;
+  const result = lastTrainingResult ?? trainingPlaybackSession;
+  if (!result) return;
   const tokens = tokenizer.decode(result.sample.inputIds);
   const targets = tokenizer.decode(result.sample.targetIds);
   const predictions = result.beforeTrace.probabilities;
@@ -301,9 +509,13 @@ function renderTrainingResult() {
   });
   $("#training-sample").classList.remove("empty");
   $("#training-sample").innerHTML = `<div class="data-grid"><div class="data-block"><h3>Input Tokens</h3><code>${tokens.map(escapeHtml).join(" → ")}</code></div><div class="data-block"><h3>Target Tokens</h3><code>${targets.map(escapeHtml).join(" → ")}</code></div><div class="data-block"><h3>Predicted Tokens</h3><code>${predictedTokens.map(escapeHtml).join(" → ")}</code></div></div><div class="table-scroll"><table><thead><tr><th>Position</th><th>Input</th><th>Target</th><th>Prediction</th><th>Loss</th></tr></thead><tbody>${tokens.map((token, index) => `<tr><td>${index}</td><td>${escapeHtml(token)}</td><td>${escapeHtml(targets[index])}</td><td>${escapeHtml(predictedTokens[index])}</td><td>${fmt(result.beforeTrace.lossByPosition[index])}</td></tr>`).join("")}</tbody></table></div>`;
-  const beforeTop = topPrediction(result.beforeTrace);
-  const afterTop = topPrediction(result.afterTrace);
   $("#training-comparison").classList.remove("empty");
+  const beforeTop = topPrediction(result.beforeTrace);
+  if (!result.afterTrace) {
+    $("#training-comparison").innerHTML = `<div class="comparison-grid"><div class="metric"><span>Current phase</span><strong>${escapeHtml(trainingPlaybackPhase || "forward")}</strong></div><div class="metric"><span>Loss before</span><strong>${fmt(result.lossBefore)}</strong></div><div class="metric"><span>Top before</span><strong>${escapeHtml(beforeTop.token)} ${(beforeTop.probability * 100).toFixed(2)}%</strong></div><div class="metric"><span>Gradient norm</span><strong>${result.rawGradientNorm == null ? "未計算" : fmt(result.rawGradientNorm)}</strong></div><div class="metric"><span>Clip scale</span><strong>${result.clipScale == null ? "未計算" : fmt(result.clipScale)}</strong></div><div class="metric"><span>Learning rate</span><strong>${fmt(trainer.learningRate)}</strong></div></div>`;
+    return;
+  }
+  const afterTop = topPrediction(result.afterTrace);
   $("#training-comparison").innerHTML = `<div class="comparison-grid"><div class="metric"><span>Loss before</span><strong>${fmt(result.lossBefore)}</strong></div><div class="metric"><span>Loss after</span><strong>${fmt(result.lossAfter)}</strong></div><div class="metric"><span>Top before</span><strong>${escapeHtml(beforeTop.token)} ${(beforeTop.probability * 100).toFixed(2)}%</strong></div><div class="metric"><span>Top after</span><strong>${escapeHtml(afterTop.token)} ${(afterTop.probability * 100).toFixed(2)}%</strong></div><div class="metric"><span>Gradient norm</span><strong>${fmt(result.rawGradientNorm)}</strong></div><div class="metric"><span>Clip scale</span><strong>${fmt(result.clipScale)}</strong></div></div>`;
 }
 
@@ -318,7 +530,13 @@ function renderTraining() {
   try { evalLoss = trainer.evaluateLoss(); } catch { evalLoss = NaN; }
   const paramValues = model.parameters().flatMap(({ tensor }) => tensor.data);
   const paramStats = stats(paramValues);
-  $("#diagnostics").innerHTML = `<div class="metric-grid"><div class="metric"><span>Evaluation Loss</span><strong>${fmt(evalLoss)}</strong></div><div class="metric"><span>Gradient Norm</span><strong>${fmt(lastTrainingResult?.rawGradientNorm ?? 0)}</strong></div><div class="metric"><span>Parameter Norm</span><strong>${fmt(paramStats.norm)}</strong></div><div class="metric"><span>Max |Activation|</span><strong>${fmt(currentTrace?.maxAbsoluteActivation ?? 0)}</strong></div><div class="metric"><span>NaN / Infinity</span><strong>${currentTrace?.nanCount ?? 0}</strong></div><div class="metric"><span>Training Step</span><strong>${trainer.step}</strong></div></div>`;
+  $("#diagnostics").innerHTML = `<div class="metric-grid"><div class="metric"><span>Evaluation Loss</span><strong>${fmt(evalLoss)}</strong></div><div class="metric"><span>Gradient Norm</span><strong>${fmt(lastTrainingResult?.rawGradientNorm ?? trainingPlaybackSession?.rawGradientNorm ?? 0)}</strong></div><div class="metric"><span>Parameter Norm</span><strong>${fmt(paramStats.norm)}</strong></div><div class="metric"><span>Max |Activation|</span><strong>${fmt(currentTrace?.maxAbsoluteActivation ?? 0)}</strong></div><div class="metric"><span>NaN / Infinity</span><strong>${currentTrace?.nanCount ?? 0}</strong></div><div class="metric"><span>Training Step</span><strong>${trainer.step}</strong></div></div>`;
+  const phaseOrder = ["forward", "loss", "backward", "gradient", "update"];
+  const phaseIndex = phaseOrder.indexOf(trainingPlaybackPhase);
+  $$("#training-flow [data-training-phase]").forEach((item, index) => {
+    item.classList.toggle("active", index === phaseIndex);
+    item.classList.toggle("done", phaseIndex >= 0 && index < phaseIndex);
+  });
   renderTrainingResult();
   renderFirstRunGuide();
 }
@@ -411,6 +629,8 @@ function renderSnapshotComparison() {
 async function runTraining(count) {
   if (autoTraining && count !== Infinity) return;
   try {
+    if (experiencePlaybackRun) cancelLanguagePlayback();
+    trainingPlaybackPhase = "";
     trainer.learningRate = Number($("#learning-rate").value);
     trainer.clipNorm = Number($("#clip-norm").value);
     if (!(trainer.learningRate > 0) || !(trainer.clipNorm > 0)) throw new Error("Learning rateとClip normは正の有限値にしてください。");
@@ -461,6 +681,7 @@ function chooseToken(logits, mode, temperature) {
 
 function generate(count) {
   try {
+    if (experiencePlaybackRun) cancelLanguagePlayback();
     let ids = promptTokenIds();
     const visibleTokens = tokenizer.tokenize($("#prompt-input").value);
     const mode = $("#sampling-mode").value;
@@ -540,6 +761,7 @@ function bindEvents() {
   $$(".tab").forEach((button) => button.addEventListener("click", () => selectTab(button.dataset.tab)));
   $("#guide-forward").addEventListener("click", runBeginnerAutoObserve);
   $("#guide-training").addEventListener("click", showBeginnerDetail);
+  $("#experience-pause").addEventListener("click", pauseLanguagePlayback);
   $("#prepare-forward").addEventListener("click", prepareForward);
   $("#forward-next").addEventListener("click", () => { engine.next(); renderForward(); });
   $("#forward-previous").addEventListener("click", () => { engine.previous(); renderForward(); });

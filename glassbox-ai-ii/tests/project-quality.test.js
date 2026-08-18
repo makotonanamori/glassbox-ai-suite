@@ -16,8 +16,15 @@ test("初回ガイドのIDは一意でForwardとTrainingの実操作へ案内す
   assert.match(html, /id="guide-training"[^>]+data-experience-mode="detail"/);
   assert.match(html, /自動で見る（おすすめ）/);
   assert.match(html, /1ステップずつ詳しく見る/);
-  assert.match(app, /async function runBeginnerAutoObserve\(\)/);
-  assert.match(app, /await runTraining\(1\)/);
+  assert.match(html, /id="experience-pause"/);
+  assert.match(html, /id="experience-speed"/);
+  assert.match(html, /id="experience-progress"/);
+  assert.match(app, /function runBeginnerAutoObserve\(\)/);
+  assert.match(app, /continueLanguagePlayback/);
+  assert.match(app, /trainer\.beginStep\(\)/);
+  assert.match(app, /trainer\.backwardStep\(trainingPlaybackSession\)/);
+  assert.match(app, /trainer\.updateStep\(trainingPlaybackSession\)/);
+  assert.match(app, /appendGeneratedToken\(run\.generationTrace\)/);
   assert.match(app, /function showBeginnerDetail\(\)/);
   assert.match(app, /#forward-next/);
 });

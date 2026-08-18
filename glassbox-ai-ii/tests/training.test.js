@@ -30,3 +30,30 @@ test("same seed and steps reproduce the same model", () => {
   assert.deepEqual(a.model.exportState().parameters, b.model.exportState().parameters);
   assert.deepEqual(a.trainer.lossHistory, b.trainer.lossHistory);
 });
+
+test("staged training follows the same real computation as trainOneStep", () => {
+  const direct = setup(91);
+  const staged = setup(91);
+  const directResult = direct.trainer.trainOneStep();
+
+  const beforeParameters = staged.model.exportState().parameters;
+  const session = staged.trainer.beginStep();
+  assert.deepEqual(staged.model.exportState().parameters, beforeParameters);
+  assert.equal(staged.trainer.step, 0);
+
+  staged.trainer.backwardStep(session);
+  assert.ok(session.rawGradientNorm > 0);
+  assert.deepEqual(staged.model.exportState().parameters, beforeParameters);
+
+  staged.trainer.updateStep(session);
+  assert.notDeepEqual(staged.model.exportState().parameters, beforeParameters);
+  const stagedResult = staged.trainer.finishStep(session);
+
+  assert.deepEqual(staged.model.exportState().parameters, direct.model.exportState().parameters);
+  assert.deepEqual(staged.trainer.lossHistory, direct.trainer.lossHistory);
+  assert.equal(stagedResult.lossBefore, directResult.lossBefore);
+  assert.equal(stagedResult.lossAfter, directResult.lossAfter);
+  assert.equal(stagedResult.rawGradientNorm, directResult.rawGradientNorm);
+  assert.equal(stagedResult.clipScale, directResult.clipScale);
+  assert.deepEqual(stagedResult.updates, directResult.updates);
+});

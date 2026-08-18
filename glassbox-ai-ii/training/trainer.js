@@ -1,5 +1,5 @@
 import { TinyTransformer } from "../model/transformer.js";
-import { globalParameterNorm, sgdStep } from "../model/optimizer.js";
+import { globalGradientNorm, globalParameterNorm, sgdStep } from "../model/optimizer.js";
 import { assertFinite } from "../utils/math.js";
 
 function deepClone(value) {
@@ -22,30 +22,85 @@ export class Trainer {
   }
 
   trainOneStep() {
+    const session = this.beginStep();
+    this.backwardStep(session);
+    this.updateStep(session);
+    return this.finishStep(session);
+  }
+
+  beginStep() {
     const sample = this.dataset.sampleAt(this.step, this.seed);
     this.model.zeroGrad();
     const before = this.model.forward(sample.inputIds, { targets: sample.targetIds });
-    this.model.backward(before.lossTensor);
     const parameterNormBefore = globalParameterNorm(this.model.parameters());
+    return {
+      stepBefore: this.step,
+      sample: deepClone(sample),
+      lossTensor: before.lossTensor,
+      beforeTrace: before.trace,
+      lossBefore: before.trace.loss,
+      parameterNormBefore,
+      backwardComplete: false,
+      updateComplete: false,
+      finished: false,
+    };
+  }
+
+  backwardStep(session) {
+    this.#assertSession(session, "backward");
+    if (session.backwardComplete) return session;
+    this.model.backward(session.lossTensor);
+    session.rawGradientNorm = globalGradientNorm(this.model.parameters());
+    session.clipScale = session.rawGradientNorm > this.clipNorm ? this.clipNorm / session.rawGradientNorm : 1;
+    session.clippedGradientNorm = session.rawGradientNorm * session.clipScale;
+    session.backwardComplete = true;
+    assertFinite([session.lossBefore, session.rawGradientNorm, session.clippedGradientNorm], "backward diagnostics");
+    return session;
+  }
+
+  updateStep(session) {
+    this.#assertSession(session, "update");
+    if (!session.backwardComplete) throw new Error("Backwardを完了してからSGD Updateを実行してください。");
+    if (session.updateComplete) return session;
     const update = sgdStep(this.model.parameters(), this.learningRate, this.clipNorm);
-    const after = this.model.forward(sample.inputIds, { targets: sample.targetIds });
-    this.step += 1;
-    this.lossHistory.push({ step: this.step, loss: before.trace.loss });
+    Object.assign(session, update);
+    session.updateComplete = true;
     this.lastUpdate = deepClone(update.updates);
+    return session;
+  }
+
+  finishStep(session) {
+    this.#assertSession(session, "finish");
+    if (!session.updateComplete) throw new Error("SGD Updateを完了してからTraining Stepを確定してください。");
+    if (session.finished) return session.result;
+    const after = this.model.forward(session.sample.inputIds, { targets: session.sample.targetIds });
+    this.step += 1;
+    this.lossHistory.push({ step: this.step, loss: session.lossBefore });
     const result = {
       step: this.step,
-      sample: deepClone(sample),
-      beforeTrace: before.trace,
+      sample: deepClone(session.sample),
+      beforeTrace: session.beforeTrace,
       afterTrace: after.trace,
-      lossBefore: before.trace.loss,
+      lossBefore: session.lossBefore,
       lossAfter: after.trace.loss,
-      parameterNormBefore,
+      parameterNormBefore: session.parameterNormBefore,
       parameterNormAfter: globalParameterNorm(this.model.parameters()),
-      ...update,
+      rawGradientNorm: session.rawGradientNorm,
+      clippedGradientNorm: session.clippedGradientNorm,
+      clipScale: session.clipScale,
+      updates: session.updates,
     };
     assertFinite([result.lossBefore, result.lossAfter, result.rawGradientNorm, result.parameterNormAfter], "training diagnostics");
     if ([10, 100, 500].includes(this.step)) this.captureSnapshot(`STEP ${this.step}`);
+    session.finished = true;
+    session.result = result;
     return result;
+  }
+
+  #assertSession(session, action) {
+    if (!session || session.stepBefore !== this.step) {
+      throw new Error(`${action}対象のTraining Sessionが現在のStepと一致しません。`);
+    }
   }
 
   trainSteps(count) {

@@ -44,13 +44,19 @@
     <div>
       <p class="eyebrow">FIRST: PRESS START</p>
       <h2 id="first-run-heading">まず、動かして結果を見る</h2>
-      <p class="microcopy">説明はあとで大丈夫です。ボタンを1つ押すと、文章を使った予測と学習を1回進めます。</p>
+      <p class="microcopy">説明はあとで大丈夫です。ボタンを1つ押すと、予測、1回の学習、1Token生成まで動きます。</p>
     </div>
     <div class="first-run-actions" aria-label="初回観察コース">
-      <button id="guide-forward" type="button" class="first-run-action primary selected" aria-pressed="true" data-experience-mode="auto"><strong>▶ 自動で見る（おすすめ）</strong><span>実際の計算で、学習前と学習後の結果を比べます</span></button>
+      <button id="guide-forward" type="button" class="first-run-action primary selected" aria-pressed="true" data-experience-mode="auto"><strong>▶ 自動で見る（おすすめ）</strong><span>予測 → 学習 → 生成を、実際の38段階で見ます</span></button>
       <button id="guide-training" type="button" class="first-run-action" aria-pressed="false" data-experience-mode="detail"><strong>1ステップずつ詳しく見る</strong><span>同じ計算を先頭から止めながら確認します</span></button>
     </div>
     <ol class="experience-flow" aria-label="自動で見る流れ"><li data-flow-step="start" class="active">1 スタート</li><li data-flow-step="motion">2 動く</li><li data-flow-step="result">3 結果</li></ol>
+    <div class="experience-run-controls" aria-label="言語モデルの再生操作">
+      <button id="experience-pause" type="button" disabled>一時停止</button>
+      <label for="experience-speed">速さ</label>
+      <select id="experience-speed"><option value="0.5">0.5倍</option><option value="1">1倍</option><option value="2" selected>2倍</option><option value="4">4倍</option></select>
+      <strong id="experience-progress">0 / 38 段階</strong>
+    </div>
     <p id="first-run-status" class="first-run-status" role="status" aria-live="polite">「自動で見る」を押してください。</p>
   </section>
 
@@ -131,7 +137,7 @@
         <section class="panel">
           <div class="section-heading"><div><p class="eyebrow">AUTOREGRESSIVE SGD</p><h2>Training Controls</h2></div><strong id="training-step">STEP 0</strong></div>
           <div class="button-row training-buttons"><button id="train-one" class="primary">Train One Step</button><button data-train-count="10">Train 10</button><button data-train-count="100">Train 100</button><button id="auto-train">Auto Train</button><button id="pause-train" disabled>Pause</button></div>
-          <div id="training-flow" class="training-flow"><span>Forward</span><b>→</b><span>Loss</span><b>→</b><span>Backward</span><b>→</b><span>Gradient</span><b>→</b><span>SGD Update</span></div>
+          <div id="training-flow" class="training-flow"><span data-training-phase="forward">Forward</span><b>→</b><span data-training-phase="loss">Loss</span><b>→</b><span data-training-phase="backward">Backward</span><b>→</b><span data-training-phase="gradient">Gradient</span><b>→</b><span data-training-phase="update">SGD Update</span></div>
           <div id="training-sample" class="empty">学習を実行すると、入力・教師・位置別Lossを表示します。</div>
         </section>
         <aside class="panel diagnostics-panel">

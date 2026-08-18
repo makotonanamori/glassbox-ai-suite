@@ -88,7 +88,10 @@ test("all applications share the real auto-observe and detail contract", async (
   assert.match(neuralApp, /function runBeginnerAutoObserve\(\)/);
   assert.match(neuralApp, /startSupervisedPlayback/);
   assert.match(neuralApp, /advanceSupervisedPlayback/);
-  assert.match(languageApp, /await runTraining\(1\)/);
+  assert.match(languageApp, /continueLanguagePlayback/);
+  assert.match(languageApp, /trainer\.beginStep\(\)/);
+  assert.match(languageApp, /trainer\.backwardStep\(trainingPlaybackSession\)/);
+  assert.match(languageApp, /appendGeneratedToken\(run\.generationTrace\)/);
   assert.match(reinforcementApp, /runRlToEnd\(\)/);
 });
 

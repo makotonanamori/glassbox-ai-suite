@@ -34,6 +34,8 @@ Glassbox AI IIIはPhase 2で、初心者向け主操作を10エピソードの�
 
 Glassbox AI IはPhase 3で、初心者向け主操作を139スナップショットの連続表示へ拡張しました。入力から予測、正解との差、全勾配、39更新、再計算、比較までを順番に描画します。再生は一時停止・再開でき、表示速度を0.5 / 1 / 2 / 4倍から選べます。
 
+Glassbox AI IIはPhase 4で、初心者向け主操作を38段階の連続表示へ拡張しました。開始時の16段階Forward、1 Training Stepの5段階、更新後の生成用16段階Forward、実際のToken選択を一本につなぎます。再生は一時停止・再開でき、表示速度を0.5 / 1 / 2 / 4倍から選べます。
+
 ### 1ステップずつ詳しく見る
 
 - 自動実行と別のモデルやダミーデータを作らない。
@@ -78,10 +80,14 @@ IDや内部adapter名は各app固有でも構いません。利用者向けの�
 - 一時停止中はengine indexを進めず、再開時は同じsnapshotから続ける。
 - 詳細入口では、同じ学習timelineを`0 / 139`へ戻して既存の数式・実値表示へ接続する。
 
-## 後続Phase
+## Phase 4 — Glassbox AI II
 
-Phase 1は共通入口と実計算への接続を担当します。時間方向の連続表示は次の順で追加します。
+- clone保存した16段階Forward Traceを、開始時の予測と更新後の生成で一段ずつ描画する。
+- TrainerのForward、Loss、Backward、Gradient、SGD Updateを段階APIで実行し、一括`trainOneStep()`も同じAPIを使う。
+- 生成時は既存のGreedy / Temperature設定とSeed付き乱数を使い、確率を作った同じTraceからTokenを選ぶ。
+- 一時停止中は段階とParameterを変えず、再開時は同じ位置から続ける。
+- 詳細入口では、開始時PromptとTraceを同時に復元し、既存16段階Forwardの`1 / 16`へ接続する。
 
-1. Glassbox AI II：予測・学習・生成の自動再生
+## 次の確認
 
-後続Phaseでも、このDOM契約と実値一致を維持します。
+I / II / IIIの時間方向表示は完了しました。次は第三者初心者testと、画面変更後のScreenshot / overview GIF更新で、このDOM契約と実値一致を再確認します。
