@@ -264,7 +264,8 @@ glassbox-ai-ii/
 │  ├─ tensor.test.js
 │  ├─ transformer.test.js
 │  ├─ gradient.test.js
-│  └─ training.test.js
+│  ├─ training.test.js
+│  └─ learning-observer.test.js
 ├─ package.json
 ├─ IMPLEMENTATION_PLAN.md
 └─ README.md
@@ -289,7 +290,8 @@ glassbox-ai-ii/
 
 ページ上部の初回ガイドには二つの入口があります。
 
-1. **Forwardを観察**: Playgroundへ移動し、`Next`でTokenからProbabilityまでの16段階を進めます。`Run Forward`なら同じTraceを最後まで表示します。
-2. **1回学習を観察**: Trainingへ移動し、`Train One Step`でForward → Loss → Backward → Gradient → SGD Updateを実行します。LossとPredictionの学習前後比較まで同じ画面で確認できます。
+1. **文章が伸びる様子を見る**: 候補Probability → 1 Token選択 → 文末追加を5回繰り返し、次Token予測が文章生成になる現象を先に観察します。
+2. **練習前と500回後を見比べる**: 固定Prompt `the cat eats`に対する候補Probabilityと生成文を左右比較します。50 Stepごとの候補変化、一時停止、再開も実Trainingと一致します。
+3. **1ステップずつ詳しく見る**: 直前に観察したmodelとPromptのTraceをTokenizer `1 / 16`へ戻し、TokenからProbabilityまでを`Next`で確認します。Loss、Gradient、SGD UpdateはTraining tabで追跡できます。
 
-ガイドは対象Tabを選び、次に押す実操作へfocusします。表示用の別計算は追加しておらず、Forward表示は引き続きclone保存されたTraceだけを読みます。初回ガイドと外部依存境界の静的検査を加え、自動テストは現在16件です。
+表面の生成と学習比較も通常のmodel、Trainer、Seed付き生成を使い、表示専用の候補や成功文は作りません。Forward表示は引き続きclone保存されたTraceだけを読みます。数学・学習・UI契約を含む自動テストは現在24件です。

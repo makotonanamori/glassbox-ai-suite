@@ -87,6 +87,70 @@
     <p class="observer-note"><span aria-hidden="true">●</span> 表示している候補・確率・選択結果は、下のTransformerが実際に使った値です。</p>
   </section>
 
+  <section id="learning-observer" class="learning-observer" aria-labelledby="learning-observer-heading" data-learning-state="ready">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">THEN: LET IT PRACTICE</p>
+        <h2 id="learning-observer-heading">では、どうして文章らしくなる？</h2>
+        <p class="microcopy">例文で「実際に次へ来た語」を何度も見て、候補の選び方を少しずつ変えます。</p>
+      </div>
+      <span id="learning-badge" class="badge">練習前</span>
+    </div>
+
+    <div class="learning-loop" aria-label="文章を学ぶ4段階">
+      <div data-learning-phase="example"><b>1</b><strong>お手本を見る</strong><span>例文の語順</span></div><i>→</i>
+      <div data-learning-phase="predict"><b>2</b><strong>次の語を予測</strong><span>今の候補を出す</span></div><i>→</i>
+      <div data-learning-phase="adjust"><b>3</b><strong>外れた分を調整</strong><span>数字を少し変える</span></div><i>→</i>
+      <div data-learning-phase="retry"><b>4</b><strong>もう一度比べる</strong><span>同じ問いで確認</span></div><i class="loop-back">↩</i>
+    </div>
+
+    <div class="corpus-patterns" aria-label="今回のお手本例">
+      <span>お手本</span>
+      <code>the cat eats → <strong>fish</strong></code>
+      <code>the dog eats → <strong>meat</strong></code>
+      <code>the bird eats → <strong>seeds</strong></code>
+      <code>the cat likes → <strong>milk</strong></code>
+    </div>
+
+    <div class="learning-controls" aria-label="文章学習の再生操作">
+      <button id="learning-start" type="button" class="primary">▶ 練習前と500回後を見比べる</button>
+      <button id="learning-pause" type="button" disabled>一時停止</button>
+      <label for="learning-speed">速さ</label>
+      <select id="learning-speed"><option value="0.5">0.5倍</option><option value="1">1倍</option><option value="2" selected>2倍</option><option value="4">4倍</option></select>
+      <strong id="learning-progress">0 / 500回</strong>
+    </div>
+    <p id="learning-status" class="learning-status" role="status" aria-live="polite">同じ問いを、練習前と後で比べます。</p>
+
+    <div class="learning-question">
+      <span>同じ問い</span>
+      <div class="question-tokens"><b>the</b><i>→</i><b>cat</b><i>→</i><b>eats</b><i>→</i><strong>?</strong></div>
+      <span>お手本では次は <strong>fish</strong></span>
+    </div>
+
+    <div class="learning-comparison">
+      <section class="learning-result before">
+        <div class="learning-result-heading"><span>練習前</span><strong id="learning-before-choice">—</strong></div>
+        <p class="visual-label">候補の確率</p>
+        <div id="learning-before-candidates" class="beginner-candidates"><div class="candidate-placeholder">開始すると固定します</div></div>
+        <p class="visual-label">そのまま5 Token伸ばすと</p>
+        <div id="learning-before-sentence" class="beginner-token-line"><span class="placeholder-token">—</span></div>
+        <div class="learning-metrics"><span>fish の確率 <strong id="learning-before-target">—</strong></span><span>お手本との差 <strong id="learning-before-loss">—</strong></span></div>
+      </section>
+      <div class="learning-change" aria-hidden="true"><span>練習</span><b>→</b><small>候補が変わる</small></div>
+      <section class="learning-result after">
+        <div class="learning-result-heading"><span id="learning-after-label">いま</span><strong id="learning-after-choice">—</strong></div>
+        <p class="visual-label">候補の確率</p>
+        <div id="learning-after-candidates" class="beginner-candidates"><div class="candidate-placeholder">練習中に変わります</div></div>
+        <p class="visual-label">そのまま5 Token伸ばすと</p>
+        <div id="learning-after-sentence" class="beginner-token-line"><span class="placeholder-token">—</span></div>
+        <div class="learning-metrics"><span>fish の確率 <strong id="learning-after-target">—</strong></span><span>お手本との差 <strong id="learning-after-loss">—</strong></span></div>
+      </section>
+    </div>
+
+    <div id="learning-checkpoints" class="learning-checkpoints" aria-label="練習途中の予測"><span class="checkpoint-placeholder">途中では候補が揺れることも、そのまま表示します。</span></div>
+    <p class="observer-note"><span aria-hidden="true">●</span> この極小モデルは、同梱した12例文の語順を練習します。途中で一時的に外れることもあり、意味を理解した証明ではありません。</p>
+  </section>
+
   <section class="detail-bridge" aria-labelledby="detail-bridge-heading">
     <div><p class="eyebrow">AFTER YOU SEE IT MOVE</p><h2 id="detail-bridge-heading">この中で何が起きたか、あとから詳しく見る</h2></div>
     <div class="inside-chain" aria-label="内部計算の流れ"><span>Token</span><i>→</i><span>Embedding</span><i>→</i><span>Attention</span><i>→</i><span>Logits</span><i>→</i><span>Softmax</span><i>→</i><span>Loss</span><i>→</i><span>Gradient</span></div>

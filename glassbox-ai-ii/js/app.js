@@ -6,6 +6,9 @@ import {
   GENERATION_PHASES, LANGUAGE_PLAYBACK_DEFAULTS, advanceGenerationContext, generationDistribution,
   languagePlaybackDelay, selectGenerationToken, topGenerationCandidates,
 } from "./auto-playback.js";
+import {
+  LEARNING_OBSERVER_DEFAULTS, captureLearningObservation, learningCheckpoints, learningObserverDelay,
+} from "./learning-observer.js";
 import { SeededRandom } from "../utils/rng.js";
 import { relativeError, stats } from "../utils/math.js";
 import { exportApplicationState, importApplicationState } from "../utils/serialization.js";
@@ -40,6 +43,8 @@ let trainingPlaybackSession = null;
 let trainingPlaybackPhase = "";
 let lastGenerationTrace = null;
 let lastGenerationPrompt = null;
+let learningObserverRun = null;
+let learningObserverToken = 0;
 
 function precision() { return Number($("#precision").value); }
 function fmt(value) { return formatter(precision())(value); }
@@ -59,22 +64,23 @@ function renderFirstRunGuide() {
   entry.dataset.experienceState = experienceState;
   const playbackActive = Boolean(experiencePlaybackRun && !experiencePlaybackRun.complete);
   const playbackPaused = Boolean(playbackActive && experiencePlaybackRun.paused);
+  const learningActive = Boolean(learningObserverRun && !learningObserverRun.complete);
   entry.dataset.playbackState = playbackPaused ? "paused" : (playbackActive ? "running" : "idle");
   const autoSelected = experienceState !== "detail";
   $("#guide-forward").classList.toggle("selected", autoSelected);
   $("#guide-forward").setAttribute("aria-pressed", String(autoSelected));
   $("#guide-training").classList.toggle("selected", !autoSelected);
   $("#guide-training").setAttribute("aria-pressed", String(!autoSelected));
-  $("#guide-forward").disabled = playbackActive && !playbackPaused;
+  $("#guide-forward").disabled = learningActive || (playbackActive && !playbackPaused);
   $("#guide-forward strong").textContent = playbackPaused
     ? "▶ 続ける"
     : (playbackActive ? "文章を生成中…" : "▶ 文章が伸びる様子を見る");
-  $("#guide-training").disabled = false;
+  $("#guide-training").disabled = learningActive;
   $("#experience-pause").disabled = !playbackActive || playbackPaused;
   $("#experience-progress").textContent = experiencePlaybackRun
     ? `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Token`
     : `0 / ${LANGUAGE_PLAYBACK_DEFAULTS.tokens} Token`;
-  setExperienceControlsLocked(playbackActive);
+  setExperienceControlsLocked(playbackActive || learningActive);
 
   const flowState = experienceState === "detail" ? "ready" : experienceState;
   const flowOrder = { ready: 0, running: 1, complete: 2 };
@@ -85,6 +91,7 @@ function renderFirstRunGuide() {
   });
   $("#first-run-status").textContent = experienceMessage;
   renderGenerationObserver();
+  renderLearningObserver();
 }
 
 function setExperienceControlsLocked(locked) {
@@ -92,6 +99,7 @@ function setExperienceControlsLocked(locked) {
     "#prepare-forward", "#forward-previous", "#forward-next", "#forward-run", "#forward-reset",
     "#generate-one", "#generate-many", "#train-one", "#auto-train", "#pause-train", "#reinitialize",
     "#seed-input", "#learning-rate", "#clip-norm", "#prompt-input", "#sampling-mode", "#temperature", "#generation-count",
+    "#detail-from-bridge",
   ];
   if (locked) {
     controls.forEach((selector) => { const element = $(selector); if (element) element.disabled = true; });
@@ -125,6 +133,12 @@ function cancelLanguagePlayback() {
   experiencePlaybackRun = null;
   trainingPlaybackSession = null;
   trainingPlaybackPhase = "";
+}
+
+function cancelLearningObserver({ discard = false } = {}) {
+  learningObserverToken += 1;
+  if (learningObserverRun && !learningObserverRun.complete) learningObserverRun.paused = true;
+  if (discard) learningObserverRun = null;
 }
 
 function pauseLanguagePlayback() {
@@ -196,6 +210,170 @@ function renderGenerationObserver() {
   const dropped = run?.droppedContext ?? [];
   $("#beginner-dropped").hidden = dropped.length === 0;
   $("#beginner-dropped strong").textContent = dropped.length ? tokenizer.decode(dropped).join(" ") : "—";
+}
+
+function learningCandidatesHtml(observation) {
+  if (!observation) return '<div class="candidate-placeholder">練習を始めると実際の確率が並びます</div>';
+  const candidates = [...observation.candidates];
+  if (!candidates.some((item) => item.id === observation.targetId)) {
+    candidates.push({ id: observation.targetId, probability: observation.targetProbability });
+  }
+  return candidates.map(({ id, probability }) => {
+    const classes = [id === observation.selectedId ? "selected" : "", id === observation.targetId ? "target" : ""].filter(Boolean).join(" ");
+    const targetLabel = id === observation.targetId ? '<em>お手本</em>' : "";
+    return `<div class="candidate-row ${classes}"><span class="candidate-token">${escapeHtml(tokenizer.vocabulary[id])}${targetLabel}</span><span class="candidate-bar"><i style="width:${Math.max(0, Math.min(100, probability * 100))}%"></i></span><span class="candidate-probability">${(probability * 100).toFixed(2)}%</span></div>`;
+  }).join("");
+}
+
+function learningSentenceHtml(observation) {
+  if (!observation) return '<span class="placeholder-token">—</span>';
+  const promptLength = observation.promptTokens.length;
+  const tokens = [...observation.promptTokens, ...observation.generatedTokens];
+  return tokens.map((token, index) => `<span class="beginner-token ${index >= promptLength ? "learned-continuation" : ""}">${escapeHtml(token)}</span>`).join("");
+}
+
+function renderLearningResult(prefix, observation, loss, label) {
+  $(`#learning-${prefix}-choice`).textContent = observation ? `選ぶ語：${observation.selectedToken}` : "—";
+  $(`#learning-${prefix}-candidates`).innerHTML = learningCandidatesHtml(observation);
+  $(`#learning-${prefix}-sentence`).innerHTML = learningSentenceHtml(observation);
+  $(`#learning-${prefix}-target`).textContent = observation ? `${(observation.targetProbability * 100).toFixed(2)}%` : "—";
+  $(`#learning-${prefix}-loss`).textContent = Number.isFinite(loss) ? fmt(loss) : "—";
+  if (prefix === "after") $("#learning-after-label").textContent = label;
+}
+
+function renderLearningObserver() {
+  if (!tokenizer) return;
+  const run = learningObserverRun;
+  const active = Boolean(run && !run.complete);
+  const paused = Boolean(active && run.paused);
+  const observer = $("#learning-observer");
+  observer.dataset.learningState = run?.complete ? "complete" : (active ? (paused ? "paused" : "running") : "ready");
+  $("#learning-badge").textContent = !run ? "練習前" : (run.complete ? `${run.completedSteps}回 完了` : `${run.completedSteps} / ${run.totalSteps}回`);
+  $("#learning-progress").textContent = `${run?.completedSteps ?? 0} / ${run?.totalSteps ?? LEARNING_OBSERVER_DEFAULTS.totalSteps}回`;
+  $("#learning-status").textContent = run?.message ?? "同じ問いを、練習前と後で比べます。";
+  $("#learning-start").disabled = Boolean(experiencePlaybackRun && !experiencePlaybackRun.complete) || (active && !paused);
+  $("#learning-start").textContent = paused
+    ? "▶ 続ける"
+    : (active ? "練習中…" : (run?.complete ? "▶ さらに500回練習して比べる" : "▶ 練習前と500回後を見比べる"));
+  $("#learning-pause").disabled = !active || paused;
+  $("#learning-speed").disabled = false;
+
+  renderLearningResult("before", run?.beforeObservation, run?.lossBefore, "練習前");
+  renderLearningResult(
+    "after",
+    run?.currentObservation,
+    run?.currentLoss,
+    run ? `${run.startStep + run.completedSteps}回後` : "いま",
+  );
+
+  const entries = run?.checkpoints ?? [];
+  $("#learning-checkpoints").innerHTML = entries.length
+    ? entries.map((item, index) => `<div class="learning-checkpoint ${index === entries.length - 1 && active ? "current" : "done"}"><span>${item.relativeStep}回</span><strong>${escapeHtml(item.observation.selectedToken)}</strong><small>${(item.observation.targetProbability * 100).toFixed(1)}% fish</small></div>`).join("")
+    : '<span class="checkpoint-placeholder">途中では候補が揺れることも、そのまま表示します。</span>';
+}
+
+function pauseLearningObserver() {
+  if (!learningObserverRun || learningObserverRun.complete || learningObserverRun.paused) return;
+  learningObserverToken += 1;
+  learningObserverRun.paused = true;
+  learningObserverRun.message = `${learningObserverRun.completedSteps} / ${learningObserverRun.totalSteps}回で一時停止しました。同じParameterから再開できます。`;
+  renderFirstRunGuide();
+}
+
+async function continueLearningObserver(run) {
+  const token = ++learningObserverToken;
+  try {
+    while (token === learningObserverToken && !run.paused && !run.complete) {
+      const checkpoint = run.checkpointSteps[run.nextCheckpointIndex];
+      let result = null;
+      for (let index = run.completedSteps; index < checkpoint; index += 1) result = trainer.trainOneStep();
+      run.completedSteps = checkpoint;
+      run.nextCheckpointIndex += 1;
+      run.currentObservation = captureLearningObservation(model, tokenizer);
+      run.currentLoss = trainer.evaluateLoss();
+      run.lastTrainingResult = result;
+      run.checkpoints.push({
+        relativeStep: run.completedSteps,
+        absoluteStep: trainer.step,
+        observation: run.currentObservation,
+        loss: run.currentLoss,
+        example: result?.sample?.sentence ?? "",
+      });
+      run.message = `${run.completedSteps}回練習。いま見たお手本は「${result?.sample?.sentence ?? "例文"}」。同じ問いの先頭候補は「${run.currentObservation.selectedToken}」です。`;
+      $("#training-step-global").textContent = trainer.step;
+      renderLearningObserver();
+      if (run.nextCheckpointIndex >= run.checkpointSteps.length) {
+        run.complete = true;
+        run.message = `同じ問いの生成が「${run.beforeObservation.generatedText}」から「${run.currentObservation.generatedText}」へ変わりました。`;
+        break;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, learningObserverDelay($("#learning-speed").value)));
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    }
+    if (token !== learningObserverToken || run.paused || !run.complete) return;
+    lastTrainingResult = run.lastTrainingResult;
+    $("#prompt-input").value = LEARNING_OBSERVER_DEFAULTS.prompt;
+    currentTrace = model.forward(promptTokenIds()).trace;
+    lastGenerationTrace = currentTrace;
+    lastGenerationPrompt = LEARNING_OBSERVER_DEFAULTS.prompt;
+    engine.load(currentTrace);
+    engine.run();
+    renderForward();
+    renderAttention();
+    renderTraining();
+    renderParameters();
+    renderSnapshots();
+    renderFirstRunGuide();
+    setNotice(`${run.totalSteps}回の実Trainingを完了。学習前後の候補と生成文を同じPromptで比較しました。`);
+    $("#learning-observer").scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (error) {
+    if (token !== learningObserverToken) return;
+    run.complete = true;
+    run.message = `練習を完了できませんでした：${error.message}`;
+    renderFirstRunGuide();
+    setNotice(run.message, true);
+  }
+}
+
+function runLearningObserver() {
+  if (learningObserverRun?.paused) {
+    learningObserverRun.paused = false;
+    learningObserverRun.message = `${learningObserverRun.completedSteps} / ${learningObserverRun.totalSteps}回から再開します。`;
+    renderFirstRunGuide();
+    void continueLearningObserver(learningObserverRun);
+    return;
+  }
+  if (learningObserverRun && !learningObserverRun.complete) return;
+
+  cancelLanguagePlayback();
+  autoTraining = false;
+  trainer.learningRate = Number($("#learning-rate").value);
+  trainer.clipNorm = Number($("#clip-norm").value);
+  if (!(trainer.learningRate > 0) || !(trainer.clipNorm > 0)) {
+    setNotice("Learning rateとClip normは正の有限値にしてください。", true);
+    return;
+  }
+  const totalSteps = LEARNING_OBSERVER_DEFAULTS.totalSteps;
+  const beforeObservation = captureLearningObservation(model, tokenizer);
+  learningObserverRun = {
+    startStep: trainer.step,
+    totalSteps,
+    completedSteps: 0,
+    checkpointSteps: learningCheckpoints(totalSteps, LEARNING_OBSERVER_DEFAULTS.checkpointEvery),
+    nextCheckpointIndex: 0,
+    beforeObservation,
+    currentObservation: beforeObservation,
+    lossBefore: trainer.evaluateLoss(),
+    currentLoss: trainer.evaluateLoss(),
+    checkpoints: [],
+    lastTrainingResult: null,
+    paused: false,
+    complete: false,
+    message: "お手本の例文を見ながら、次Tokenの候補を実際に更新しています。",
+  };
+  renderFirstRunGuide();
+  $("#learning-observer").scrollIntoView({ behavior: "smooth", block: "center" });
+  void continueLearningObserver(learningObserverRun);
 }
 
 function generationPlaybackMessage(phase, run) {
@@ -364,6 +542,7 @@ function showBeginnerDetail() {
 
 function initialize(seed = 42) {
   cancelLanguagePlayback();
+  cancelLearningObserver({ discard: true });
   dataset = new LanguageDataset(DEFAULT_CORPUS);
   tokenizer = dataset.tokenizer;
   model = new TinyTransformer(tokenizer.vocabulary, { seed });
@@ -386,6 +565,7 @@ function initialize(seed = 42) {
   $("#seed-input").value = seed;
   renderStatic();
   prepareForward();
+  renderFirstRunGuide();
   setNotice(`Seed ${seed}の未学習モデルを初期化しました。`);
 }
 
@@ -674,6 +854,7 @@ async function runTraining(count) {
   if (autoTraining && count !== Infinity) return;
   try {
     if (experiencePlaybackRun) cancelLanguagePlayback();
+    if (learningObserverRun && !learningObserverRun.complete) cancelLearningObserver();
     trainingPlaybackPhase = "";
     trainer.learningRate = Number($("#learning-rate").value);
     trainer.clipNorm = Number($("#clip-norm").value);
@@ -720,6 +901,7 @@ function chooseToken(logits, mode, temperature) {
 function generate(count) {
   try {
     if (experiencePlaybackRun) cancelLanguagePlayback();
+    if (learningObserverRun && !learningObserverRun.complete) cancelLearningObserver();
     let ids = promptTokenIds();
     const visibleTokens = tokenizer.tokenize($("#prompt-input").value);
     const mode = $("#sampling-mode").value;
@@ -783,6 +965,8 @@ function exportState() {
 
 async function importState(file) {
   try {
+    cancelLanguagePlayback();
+    cancelLearningObserver({ discard: true });
     const restored = importApplicationState(await file.text());
     ({ model, trainer, dataset, tokenizer } = restored);
     $("#seed-input").value = trainer.seed;
@@ -801,6 +985,8 @@ function bindEvents() {
   $("#guide-training").addEventListener("click", showBeginnerDetail);
   $("#detail-from-bridge").addEventListener("click", showBeginnerDetail);
   $("#experience-pause").addEventListener("click", pauseLanguagePlayback);
+  $("#learning-start").addEventListener("click", runLearningObserver);
+  $("#learning-pause").addEventListener("click", pauseLearningObserver);
   $("#prepare-forward").addEventListener("click", prepareForward);
   $("#forward-next").addEventListener("click", () => { engine.next(); renderForward(); });
   $("#forward-previous").addEventListener("click", () => { engine.previous(); renderForward(); });

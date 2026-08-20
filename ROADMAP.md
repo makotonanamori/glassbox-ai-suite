@@ -28,6 +28,7 @@
 - [x] Glassbox AI IIIで連続Episodeの試行錯誤を時間方向に表示する
 - [x] Glassbox AI Iで139 step教師あり学習を時間方向に表示する
 - [x] Glassbox AI IIで次Token候補・選択・文末追加・反復を時間方向に表示し、内部Traceを詳細へ分ける
+- [x] Glassbox AI IIで同じPromptの学習前／500回後を実Trainingし、候補確率と生成文の変化を並べる
 - [x] CHANGELOGを作成し、検証済み公開baselineを履歴化する
 - [ ] 初回release / tagを作成し、versioned releaseを固定する
 - [ ] 第三者が説明なしでI → II → IIIを完走する初心者user testを行う

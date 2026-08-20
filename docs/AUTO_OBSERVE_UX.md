@@ -38,6 +38,8 @@ Glassbox AI IIはPhase 4で、初心者向け主操作を38段階の連続表示
 
 その後の初心者testを受け、Phase 5では入口の学習目標をさらに絞りました。表面では`候補確率 → 1 Token選択 → 文末追加 → 次の予測`を既定5 Token繰り返し、内部16段階とTrainingは生成現象を見た後の詳細へ移します。
 
+生成反復を理解した後の疑問を受け、Phase 6では`お手本を見る → 次の語を予測 → 外れた分を調整 → 同じ問いで再確認`を第二入口として追加しました。同じPromptの学習前と500回後を、候補Probabilityと生成文で左右比較します。
+
 ### 1ステップずつ詳しく見る
 
 - 自動実行と別のモデルやダミーデータを作らない。
@@ -99,6 +101,15 @@ IDや内部adapter名は各app固有でも構いません。利用者向けの�
 - 表面の自動再生ではTrainingを実行しない。`Token → Embedding → Attention → Logits → Softmax → Loss → Gradient`を短い視覚導線として下に置き、既存Forward / Training画面へ接続する。
 - 詳細入口では、最後の候補を計算したPromptとclone保存済みTraceを同時に復元する。
 
+## Phase 6 — Glassbox AI II 文章らしさの学習前後
+
+- 固定Prompt `the cat eats`と同梱12例文を使用し、現在の同一modelを500 Training Step更新する。学習済みmodelや表示専用の成功文は使わない。
+- 学習前と現在の上位候補、選択Token、5 Token生成結果、期待Token `fish`のProbability、Corpus平均Lossを左右に並べる。
+- 50 Stepごとの10 checkpointでTrainerを実際に進め、候補の揺れを履歴へ残す。途中で別Tokenが最大になる場合も成功風に補正しない。
+- 一時停止中はParameterとTraining stepを変えず、再開時は同じmodel状態から続ける。待機時間は表示だけに作用する。
+- 完了後の詳細入口は、学習後modelの固定Prompt Traceを`1 / 16`へ戻す。
+- 極小Corpusの語順学習であり、意味理解の証明や大規模生成AIと同等の文章品質ではないことを観測結果と分けて明示する。
+
 ## 次の確認
 
-I / II / IIIの時間方向表示は完了しました。次はIIの生成ループを含む第三者初心者再testと、画面変更後のScreenshot / overview GIF更新で、このDOM契約と実値一致を再確認します。
+I / II / IIIの時間方向表示と、IIの生成・学習前後の二段入口は完了しました。次は第三者初心者再testで、生成反復から学習による候補変化まで説明なしに追えるかを観察し、文言確定後にScreenshot / overview GIFを更新します。

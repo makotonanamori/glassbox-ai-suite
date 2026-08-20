@@ -25,6 +25,12 @@ test("初回ガイドは生成ループを先に見せ、内部Traceを詳細へ
   assert.match(html, /id="beginner-selected-token"/);
   assert.match(html, /候補の確率/);
   assert.match(html, /文末へ足す/);
+  assert.match(html, /id="learning-observer"/);
+  assert.match(html, /id="learning-start"/);
+  assert.match(html, /id="learning-before-candidates"/);
+  assert.match(html, /id="learning-after-candidates"/);
+  assert.match(html, /練習前と500回後を見比べる/);
+  assert.match(html, /お手本を見る[\s\S]+次の語を予測[\s\S]+外れた分を調整[\s\S]+もう一度比べる/);
   assert.match(html, /Token[\s\S]+Embedding[\s\S]+Attention[\s\S]+Logits[\s\S]+Softmax[\s\S]+Loss[\s\S]+Gradient/);
   assert.match(app, /function runBeginnerAutoObserve\(\)/);
   assert.match(app, /continueLanguagePlayback/);
@@ -32,6 +38,9 @@ test("初回ガイドは生成ループを先に見せ、内部Traceを詳細へ
   assert.match(app, /generationDistribution/);
   assert.match(app, /run\.visibleTokens\.push/);
   assert.match(app, /function showBeginnerDetail\(\)/);
+  assert.match(app, /function runLearningObserver\(\)/);
+  assert.match(app, /continueLearningObserver/);
+  assert.match(app, /captureLearningObservation/);
   assert.match(app, /#forward-next/);
 });
 

@@ -92,6 +92,10 @@ test("all applications share the real auto-observe and detail contract", async (
   assert.match(languageApp, /executeGenerationPhase/);
   assert.match(languageApp, /generationDistribution/);
   assert.match(languageApp, /run\.visibleTokens\.push/);
+  assert.match(languageApp, /continueLearningObserver/);
+  assert.match(languageApp, /trainer\.trainOneStep\(\)/);
+  assert.match(languageHtml, /練習前と500回後を見比べる/);
+  assert.match(contract, /Phase 6 — Glassbox AI II/);
   assert.match(reinforcementApp, /runRlToEnd\(\)/);
 });
 

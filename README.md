@@ -115,6 +115,7 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - Reverse-mode autograd、Cross Entropy、SGD、global gradient clipping
 - 16段階Forward Trace、Attention Inspector、Training、Generation、Snapshot
 - 候補確率 → 1 Token選択 → 文末追加 → 反復を5 Token見せる生成ループ、一時停止・再開、速度変更
+- 同じPromptの学習前／500回後を、候補確率・生成文・Corpus平均Lossで並べる初心者向け実Training比較
 - JSON保存、Seed再現、有限差分Gradient Check
 
 ### Glassbox AI III — `glassbox-ai-iii`
