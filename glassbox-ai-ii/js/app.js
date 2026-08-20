@@ -2,9 +2,12 @@ import { LanguageDataset, DEFAULT_CORPUS } from "../training/dataset.js";
 import { TinyTransformer } from "../model/transformer.js";
 import { Trainer } from "../training/trainer.js";
 import { ForwardStepEngine, FORWARD_STAGES } from "../model/step-engine.js";
-import { LANGUAGE_PLAYBACK_STAGES, languagePlaybackDelay } from "./auto-playback.js";
+import {
+  GENERATION_PHASES, LANGUAGE_PLAYBACK_DEFAULTS, advanceGenerationContext, generationDistribution,
+  languagePlaybackDelay, selectGenerationToken, topGenerationCandidates,
+} from "./auto-playback.js";
 import { SeededRandom } from "../utils/rng.js";
-import { stableSoftmax, relativeError, stats } from "../utils/math.js";
+import { relativeError, stats } from "../utils/math.js";
 import { exportApplicationState, importApplicationState } from "../utils/serialization.js";
 import {
   attentionCellDetails, escapeHtml, formatter, renderLossChart, renderMatrix,
@@ -35,8 +38,8 @@ let experiencePlaybackRun = null;
 let experiencePlaybackToken = 0;
 let trainingPlaybackSession = null;
 let trainingPlaybackPhase = "";
-let lastAutoPredictionTrace = null;
-let lastAutoPredictionPrompt = null;
+let lastGenerationTrace = null;
+let lastGenerationPrompt = null;
 
 function precision() { return Number($("#precision").value); }
 function fmt(value) { return formatter(precision())(value); }
@@ -65,12 +68,12 @@ function renderFirstRunGuide() {
   $("#guide-forward").disabled = playbackActive && !playbackPaused;
   $("#guide-forward strong").textContent = playbackPaused
     ? "▶ 続ける"
-    : (playbackActive ? "動いています…" : "▶ 自動で見る（おすすめ）");
+    : (playbackActive ? "文章を生成中…" : "▶ 文章が伸びる様子を見る");
   $("#guide-training").disabled = false;
   $("#experience-pause").disabled = !playbackActive || playbackPaused;
   $("#experience-progress").textContent = experiencePlaybackRun
-    ? `${experiencePlaybackRun.completedStages} / ${experiencePlaybackRun.totalStages} 段階`
-    : `0 / ${LANGUAGE_PLAYBACK_STAGES.length} 段階`;
+    ? `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Token`
+    : `0 / ${LANGUAGE_PLAYBACK_DEFAULTS.tokens} Token`;
   setExperienceControlsLocked(playbackActive);
 
   const flowState = experienceState === "detail" ? "ready" : experienceState;
@@ -81,6 +84,7 @@ function renderFirstRunGuide() {
     item.classList.toggle("active", index === current);
   });
   $("#first-run-status").textContent = experienceMessage;
+  renderGenerationObserver();
 }
 
 function setExperienceControlsLocked(locked) {
@@ -92,6 +96,7 @@ function setExperienceControlsLocked(locked) {
   if (locked) {
     controls.forEach((selector) => { const element = $(selector); if (element) element.disabled = true; });
     $$('[data-train-count]').forEach((button) => { button.disabled = true; });
+    $$(".tab").forEach((button) => { button.disabled = true; });
     return;
   }
   controls.forEach((selector) => { const element = $(selector); if (element) element.disabled = false; });
@@ -99,6 +104,7 @@ function setExperienceControlsLocked(locked) {
   $("#forward-next").disabled = !currentTrace || engine.index >= FORWARD_STAGES.length - 1;
   $("#pause-train").disabled = !autoTraining;
   $$('[data-train-count]').forEach((button) => { button.disabled = false; });
+  $$(".tab").forEach((button) => { button.disabled = false; });
 }
 
 function focusFirstRunTarget() {
@@ -126,124 +132,162 @@ function pauseLanguagePlayback() {
   experiencePlaybackToken += 1;
   experiencePlaybackRun.paused = true;
   experienceState = "running";
-  experienceMessage = `${experiencePlaybackRun.completedStages} / ${experiencePlaybackRun.totalStages}段階で一時停止しました。「続ける」で再開できます。`;
+  const phase = GENERATION_PHASES[experiencePlaybackRun.displayPhaseIndex];
+  experienceMessage = `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Token、` +
+    `「${phase.label}」で一時停止しました。「続ける」で再開できます。`;
   renderFirstRunGuide();
 }
 
-function playbackMessage(stage, run) {
-  if (stage.phase === "prediction") {
-    if (stage.forwardIndex === 0) return "文章をTokenとIDへ分けました。ここから次の言葉を予測します。";
-    if (stage.forwardIndex < 6) return `言葉を数値へ変換しています。${stage.label}`;
-    if (stage.forwardIndex < 10) return `過去のどのTokenを見るか計算しています。${stage.label}`;
-    if (stage.forwardIndex < 15) return `見つけた情報を混ぜ、次Token候補の点数へ変換しています。${stage.label}`;
-    const top = topPrediction(run.predictionTrace);
-    return `開始時の予測が出ました。最有力は「${top.token}」${(top.probability * 100).toFixed(2)}%です。`;
-  }
-  if (stage.key === "training:forward") return "教材Corpusから1例を選び、正解の次Tokenと予測を比べました。";
-  if (stage.key === "training:loss") return `予測のずれを測りました。Lossは${fmt(trainingPlaybackSession.lossBefore)}です。`;
-  if (stage.key === "training:backward") return `ずれをParameterへ戻しました。Gradient normは${fmt(trainingPlaybackSession.rawGradientNorm)}です。`;
-  if (stage.key === "training:gradient") return `更新前にGradientの大きさを確認しました。Clip scaleは${fmt(trainingPlaybackSession.clipScale)}です。`;
-  if (stage.key === "training:update") return `数字を更新しました。学習例のLossは${fmt(run.trainingResult.lossBefore)} → ${fmt(run.trainingResult.lossAfter)}です。`;
-  if (stage.forwardIndex === 0) return "更新したmodelで、入力文から生成用の計算を始めます。";
-  if (stage.forwardIndex < 6) return `生成する文脈を数値へ変換しています。${stage.label}`;
-  if (stage.forwardIndex < 10) return `生成前のAttentionを計算しています。${stage.label}`;
-  if (stage.forwardIndex < 15) return `生成候補の点数を作っています。${stage.label}`;
-  if (stage.key === "generation:select") return `確率から「${run.generated.token}」を選び、入力の末尾へ追加しました。`;
-  const top = topPrediction(run.generationTrace);
-  return `更新後の確率が出ました。最有力は「${top.token}」${(top.probability * 100).toFixed(2)}%です。`;
+function generationChoice(probabilities, mode) {
+  const draw = mode === "temperature"
+    ? new SeededRandom(`${trainer.seed}:generation:${generationCounter++}`).next()
+    : null;
+  return {
+    id: selectGenerationToken(probabilities, { mode, draw: draw ?? 0 }),
+    draw,
+  };
 }
 
-function appendGeneratedToken(trace) {
-  const [rows, cols] = trace.logits.shape;
-  const logits = trace.logits.data.slice((rows - 1) * cols, rows * cols);
-  const nextId = chooseToken(logits, $("#sampling-mode").value, Number($("#temperature").value));
-  const token = tokenizer.vocabulary[nextId];
-  const visibleTokens = tokenizer.tokenize($("#prompt-input").value);
-  if (token !== "<EOS>") visibleTokens.push(token);
-  const text = tokenizer.detokenize(visibleTokens);
-  $("#generation-output").textContent = token === "<EOS>" ? `${text} → <EOS>` : text;
-  $("#prompt-input").value = text;
-  return { id: nextId, token, text };
+function renderGenerationObserver() {
+  if (!tokenizer) return;
+  const run = experiencePlaybackRun;
+  const phase = run ? GENERATION_PHASES[run.displayPhaseIndex]?.key ?? "repeat" : "ready";
+  const observer = $("#generation-observer");
+  observer.dataset.generationPhase = run?.complete ? "complete" : phase;
+  const phaseIndex = GENERATION_PHASES.findIndex((item) => item.key === phase);
+  $$("[data-loop-phase]").forEach((item, index) => {
+    item.classList.toggle("active", Boolean(run && !run.complete && index === phaseIndex));
+    item.classList.toggle("done", Boolean(run && (run.complete || index < phaseIndex)));
+  });
+
+  $("#generation-round").textContent = !run
+    ? "START待ち"
+    : (run.complete
+      ? `${run.completedTokens} Token生成`
+      : `${Math.min(run.completedTokens + 1, run.totalTokens)}回目 / ${run.totalTokens}`);
+
+  const visibleTokens = run?.visibleTokens ?? tokenizer.tokenize($("#prompt-input").value);
+  $("#beginner-sentence").innerHTML = visibleTokens.length
+    ? visibleTokens.map((token, index) => `<span class="beginner-token ${index === run?.newTokenIndex ? "new" : ""}">${escapeHtml(token)}</span>`).join("")
+    : '<span class="placeholder-token">文章を入力してください</span>';
+
+  const candidates = run?.probabilities ? topGenerationCandidates(run.probabilities, 5) : [];
+  if (run?.selectedId != null && !candidates.some((item) => item.id === run.selectedId)) {
+    candidates.push({ id: run.selectedId, probability: run.probabilities[run.selectedId] });
+  }
+  $("#beginner-candidates").innerHTML = candidates.length
+    ? candidates.map(({ id, probability }) => `<div class="candidate-row ${id === run.selectedId ? "selected" : ""}"><span class="candidate-token">${escapeHtml(tokenizer.vocabulary[id])}</span><span class="candidate-bar"><i style="width:${Math.max(0, Math.min(100, probability * 100))}%"></i></span><span class="candidate-probability">${(probability * 100).toFixed(2)}%</span></div>`).join("")
+    : '<div class="candidate-placeholder">STARTを押すと、実際の確率が並びます</div>';
+
+  const selectedToken = run?.selectedId == null ? null : tokenizer.vocabulary[run.selectedId];
+  $("#beginner-selected-token").textContent = selectedToken ?? "?";
+  $("#beginner-selected-token").classList.toggle("chosen", selectedToken != null);
+  if (!selectedToken) {
+    $("#beginner-selection-note").textContent = "まだ選んでいません";
+  } else if (run.mode === "greedy") {
+    $("#beginner-selection-note").textContent = "いちばん確率が高い候補を選択";
+  } else {
+    $("#beginner-selection-note").textContent = `乱数 ${run.draw.toFixed(4)} が入った確率区間を選択`;
+  }
+
+  const contextIds = run?.contextIds ?? promptTokenIds();
+  $("#beginner-context").innerHTML = tokenizer.decode(contextIds).map((token) =>
+    `<span class="context-token ${token === "<BOS>" ? "bos" : ""}">${escapeHtml(token)}</span>`).join("");
+  const dropped = run?.droppedContext ?? [];
+  $("#beginner-dropped").hidden = dropped.length === 0;
+  $("#beginner-dropped strong").textContent = dropped.length ? tokenizer.decode(dropped).join(" ") : "—";
 }
 
-function executeLanguagePlaybackStage(stage, run) {
-  if (stage.phase === "prediction") {
-    currentTrace = run.predictionTrace;
-    if (stage.forwardIndex === 0) engine.load(currentTrace);
-    engine.index = stage.forwardIndex;
-    selectTab("playground");
-    renderForward();
-    return;
+function generationPlaybackMessage(phase, run) {
+  if (phase.key === "candidates") return "次に来るTokenの候補確率が出ました。棒の長さと実数値は同じ確率です。";
+  const token = tokenizer.vocabulary[run.selectedId];
+  if (phase.key === "selection") return `候補から「${token}」を1個選びました。`;
+  if (phase.key === "append") {
+    return token === "<EOS>" ? "文章の終わりを表すTokenを選びました。" : `「${token}」を文末へ足しました。文章が1 Token伸びました。`;
   }
+  return run.ended ? "文章の終わりに到達しました。" : "伸びた文章を使って、次のToken予測へ戻ります。";
+}
 
-  if (stage.phase === "training") {
-    selectTab("training");
-    trainingPlaybackPhase = stage.key.split(":")[1];
-    if (stage.key === "training:forward") {
-      trainer.learningRate = Number($("#learning-rate").value);
-      trainer.clipNorm = Number($("#clip-norm").value);
-      trainingPlaybackSession = trainer.beginStep();
-      lastTrainingResult = null;
-    } else if (stage.key === "training:backward") {
-      trainer.backwardStep(trainingPlaybackSession);
-    } else if (stage.key === "training:update") {
-      trainer.updateStep(trainingPlaybackSession);
-      lastTrainingResult = trainer.finishStep(trainingPlaybackSession);
-      run.trainingResult = lastTrainingResult;
-    }
-    renderTraining();
-    renderParameters();
-    renderSnapshots();
-    return;
-  }
-
-  if (stage.key === "generation:select") {
-    run.generated = appendGeneratedToken(run.generationTrace);
-    renderForward();
-    return;
-  }
-
-  if (stage.forwardIndex === 0) {
-    run.generationTrace = model.forward(promptTokenIds()).trace;
-    currentTrace = run.generationTrace;
+function executeGenerationPhase(phase, run) {
+  if (phase.key === "candidates") {
+    run.newTokenIndex = null;
+    run.selectedId = null;
+    run.draw = null;
+    run.droppedContext = [];
+    const forward = model.forward(run.contextIds);
+    run.trace = forward.trace;
+    currentTrace = forward.trace;
+    selectedToken = Math.min(selectedToken, currentTrace.tokens.length - 1);
+    selectedAttention = {
+      row: Math.min(selectedAttention.row, currentTrace.tokens.length - 1),
+      col: Math.min(selectedAttention.col, currentTrace.tokens.length - 1),
+    };
     engine.load(currentTrace);
+    engine.run();
+    lastGenerationTrace = currentTrace;
+    lastGenerationPrompt = tokenizer.detokenize(run.contextIds);
+    const [rows, cols] = currentTrace.logits.shape;
+    const logits = currentTrace.logits.data.slice((rows - 1) * cols, rows * cols);
+    run.probabilities = generationDistribution(logits, {
+      bosId: tokenizer.tokenToId.get("<BOS>"),
+      temperature: run.mode === "temperature" ? run.temperature : 1,
+    });
+    renderForward();
+    renderAttention();
+    return;
   }
-  currentTrace = run.generationTrace;
-  engine.index = stage.forwardIndex;
-  selectTab("playground");
-  renderForward();
+  if (phase.key === "selection") {
+    const choice = generationChoice(run.probabilities, run.mode);
+    run.selectedId = choice.id;
+    run.draw = choice.draw;
+    return;
+  }
+  if (phase.key === "append") {
+    const eosId = tokenizer.tokenToId.get("<EOS>");
+    run.completedTokens += 1;
+    if (run.selectedId === eosId) {
+      run.ended = true;
+    } else {
+      run.visibleTokens.push(tokenizer.vocabulary[run.selectedId]);
+      run.newTokenIndex = run.visibleTokens.length - 1;
+      const advanced = advanceGenerationContext(run.contextIds, run.selectedId, model.config.contextLength);
+      run.droppedContext = advanced.droppedIds;
+      run.contextIds = advanced.contextIds;
+    }
+    const text = tokenizer.detokenize(run.visibleTokens);
+    $("#generation-output").textContent = run.ended ? `${text} → <EOS>` : text;
+    $("#prompt-input").value = text;
+  }
 }
 
 async function continueLanguagePlayback(run) {
   const token = ++experiencePlaybackToken;
   try {
-    while (token === experiencePlaybackToken && !run.paused && run.nextStage < LANGUAGE_PLAYBACK_STAGES.length) {
-      const stage = LANGUAGE_PLAYBACK_STAGES[run.nextStage];
-      executeLanguagePlaybackStage(stage, run);
-      run.nextStage += 1;
-      run.completedStages = run.nextStage;
-      experienceMessage = playbackMessage(stage, run);
+    while (token === experiencePlaybackToken && !run.paused && !run.complete) {
+      const phase = GENERATION_PHASES[run.nextPhaseIndex];
+      executeGenerationPhase(phase, run);
+      run.displayPhaseIndex = run.nextPhaseIndex;
+      run.nextPhaseIndex = (run.nextPhaseIndex + 1) % GENERATION_PHASES.length;
+      run.completedStages += 1;
+      experienceMessage = generationPlaybackMessage(phase, run);
+      const finished = phase.key === "repeat" && (run.ended || run.completedTokens >= run.totalTokens);
+      if (finished) {
+        run.complete = true;
+        experienceState = "complete";
+        experienceMessage = run.ended
+          ? `文章の終わりを選び、${run.completedTokens} Tokenで生成を止めました。`
+          : `${run.completedTokens}回、候補から1 Tokenを選びました。文が「${tokenizer.detokenize(run.visibleTokens)}」まで伸びました。`;
+      }
       renderFirstRunGuide();
-      if (run.nextStage >= LANGUAGE_PLAYBACK_STAGES.length) break;
+      if (run.complete) break;
       await new Promise((resolve) => window.setTimeout(resolve, languagePlaybackDelay($("#experience-speed").value)));
     }
-    if (token !== experiencePlaybackToken || run.paused) return;
-    run.complete = true;
-    trainingPlaybackSession = null;
-    trainingPlaybackPhase = "";
-    experienceState = "complete";
-    const before = topPrediction(run.predictionTrace);
-    experienceMessage =
-      `結果が出ました。開始時の最有力は「${before.token}」、1回学習した後に「${run.generated.token}」を生成しました。` +
-      `学習例のLossは${fmt(run.trainingResult.lossBefore)} → ${fmt(run.trainingResult.lossAfter)}です。`;
-    renderTraining();
-    renderFirstRunGuide();
-    $("#generation-output").scrollIntoView({ behavior: "smooth", block: "center" });
+    if (token !== experiencePlaybackToken || run.paused || !run.complete) return;
+    setNotice(`${run.completedTokens} Tokenの生成ループを実値で完了しました。`);
+    $("#generation-observer").scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (error) {
     if (token !== experiencePlaybackToken) return;
     run.complete = true;
-    trainingPlaybackSession = null;
-    trainingPlaybackPhase = "";
     experienceState = "ready";
     experienceMessage = `自動再生を完了できませんでした：${error.message}`;
     setNotice(experienceMessage, true);
@@ -255,7 +299,7 @@ function runBeginnerAutoObserve() {
   if (experiencePlaybackRun?.paused) {
     experiencePlaybackRun.paused = false;
     experienceState = "running";
-    experienceMessage = `${experiencePlaybackRun.completedStages} / ${experiencePlaybackRun.totalStages}段階から再開します。`;
+    experienceMessage = `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Tokenから再開します。`;
     renderFirstRunGuide();
     void continueLanguagePlayback(experiencePlaybackRun);
     return;
@@ -264,40 +308,40 @@ function runBeginnerAutoObserve() {
 
   cancelLanguagePlayback();
   autoTraining = false;
-  trainer.learningRate = Number($("#learning-rate").value);
-  trainer.clipNorm = Number($("#clip-norm").value);
-  if (!(trainer.learningRate > 0) || !(trainer.clipNorm > 0)) {
-    setNotice("Learning rateとClip normは正の有限値にしてください。", true);
-    return;
-  }
-  const predictionPrompt = $("#prompt-input").value;
-  const predictionTrace = model.forward(promptTokenIds()).trace;
-  lastAutoPredictionTrace = predictionTrace;
-  lastAutoPredictionPrompt = predictionPrompt;
-  currentTrace = predictionTrace;
-  engine.load(currentTrace);
-  trainingPlaybackSession = null;
-  trainingPlaybackPhase = "";
-  lastTrainingResult = null;
+  generationCounter = 0;
+  const totalTokens = Math.max(1, Math.min(32, Number($("#generation-count").value) || LANGUAGE_PLAYBACK_DEFAULTS.tokens));
+  const initialPrompt = $("#prompt-input").value;
+  const visibleTokens = tokenizer.tokenize(initialPrompt);
+  const contextIds = promptTokenIds();
+  lastGenerationTrace = null;
+  lastGenerationPrompt = null;
   $("#generation-output").textContent = "—";
   experiencePlaybackRun = {
-    predictionTrace,
-    predictionPrompt,
-    generationTrace: null,
-    trainingResult: null,
-    generated: null,
+    initialPrompt,
+    visibleTokens,
+    contextIds,
+    probabilities: null,
+    selectedId: null,
+    draw: null,
+    droppedContext: [],
+    newTokenIndex: null,
+    mode: $("#sampling-mode").value,
+    temperature: Number($("#temperature").value),
+    completedTokens: 0,
+    totalTokens,
     completedStages: 0,
-    totalStages: LANGUAGE_PLAYBACK_STAGES.length,
-    nextStage: 0,
+    displayPhaseIndex: 0,
+    nextPhaseIndex: 0,
+    ended: false,
     paused: false,
     complete: false,
   };
   firstRunMode = "forward";
   experienceState = "running";
-  experienceMessage = `0 / ${LANGUAGE_PLAYBACK_STAGES.length}段階。文章から次の言葉を予測し始めます。`;
-  setNotice("予測 → 1 Training Step → 1 Token生成の自動再生を開始しました。");
+  experienceMessage = "まず、次に来るToken候補の確率を計算します。";
+  setNotice("候補確率 → Token選択 → 文への追加を繰り返します。");
   renderFirstRunGuide();
-  $("#stage-view").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#generation-observer").scrollIntoView({ behavior: "smooth", block: "center" });
   void continueLanguagePlayback(experiencePlaybackRun);
 }
 
@@ -305,11 +349,11 @@ function showBeginnerDetail() {
   cancelLanguagePlayback();
   firstRunMode = "forward";
   experienceState = "detail";
-  experienceMessage = "同じ計算を先頭へ戻しました。「Next」で1つずつ確認できます。";
+  experienceMessage = "いま見た候補確率の計算を先頭へ戻しました。「Next」で内部を1つずつ確認できます。";
   selectTab("playground");
-  if (lastAutoPredictionTrace) {
-    if (lastAutoPredictionPrompt != null) $("#prompt-input").value = lastAutoPredictionPrompt;
-    currentTrace = lastAutoPredictionTrace;
+  if (lastGenerationTrace) {
+    if (lastGenerationPrompt != null) $("#prompt-input").value = lastGenerationPrompt;
+    currentTrace = lastGenerationTrace;
     engine.load(currentTrace);
   } else if (!currentTrace) prepareForward();
   engine.reset();
@@ -335,10 +379,10 @@ function initialize(seed = 42) {
   selectedParameter = "embeddings.token";
   lastTrainingResult = null;
   generationCounter = 0;
-  lastAutoPredictionTrace = null;
-  lastAutoPredictionPrompt = null;
+  lastGenerationTrace = null;
+  lastGenerationPrompt = null;
   experienceState = "ready";
-  experienceMessage = "「自動で見る」を押してください。";
+  experienceMessage = "「文章が伸びる様子を見る」を押してください。";
   $("#seed-input").value = seed;
   renderStatic();
   prepareForward();
@@ -666,17 +710,11 @@ function setTrainingButtons(running) {
 }
 
 function chooseToken(logits, mode, temperature) {
-  const selectable = [...logits];
-  selectable[tokenizer.tokenToId.get("<BOS>")] = -Infinity;
-  if (mode === "greedy") {
-    let best = 0; selectable.forEach((value, index) => { if (value > selectable[best]) best = index; }); return best;
-  }
-  const probabilities = stableSoftmax(selectable, temperature);
-  const rng = new SeededRandom(`${trainer.seed}:generation:${generationCounter++}`);
-  const draw = rng.next();
-  let cumulative = 0;
-  for (let i = 0; i < probabilities.length; i += 1) { cumulative += probabilities[i]; if (draw <= cumulative) return i; }
-  return probabilities.length - 1;
+  const probabilities = generationDistribution(logits, {
+    bosId: tokenizer.tokenToId.get("<BOS>"),
+    temperature: mode === "temperature" ? temperature : 1,
+  });
+  return generationChoice(probabilities, mode).id;
 }
 
 function generate(count) {
@@ -761,6 +799,7 @@ function bindEvents() {
   $$(".tab").forEach((button) => button.addEventListener("click", () => selectTab(button.dataset.tab)));
   $("#guide-forward").addEventListener("click", runBeginnerAutoObserve);
   $("#guide-training").addEventListener("click", showBeginnerDetail);
+  $("#detail-from-bridge").addEventListener("click", showBeginnerDetail);
   $("#experience-pause").addEventListener("click", pauseLanguagePlayback);
   $("#prepare-forward").addEventListener("click", prepareForward);
   $("#forward-next").addEventListener("click", () => { engine.next(); renderForward(); });

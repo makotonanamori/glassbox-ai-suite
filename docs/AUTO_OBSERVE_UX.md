@@ -36,6 +36,8 @@ Glassbox AI IはPhase 3で、初心者向け主操作を139スナップショッ
 
 Glassbox AI IIはPhase 4で、初心者向け主操作を38段階の連続表示へ拡張しました。開始時の16段階Forward、1 Training Stepの5段階、更新後の生成用16段階Forward、実際のToken選択を一本につなぎます。再生は一時停止・再開でき、表示速度を0.5 / 1 / 2 / 4倍から選べます。
 
+その後の初心者testを受け、Phase 5では入口の学習目標をさらに絞りました。表面では`候補確率 → 1 Token選択 → 文末追加 → 次の予測`を既定5 Token繰り返し、内部16段階とTrainingは生成現象を見た後の詳細へ移します。
+
 ### 1ステップずつ詳しく見る
 
 - 自動実行と別のモデルやダミーデータを作らない。
@@ -88,6 +90,15 @@ IDや内部adapter名は各app固有でも構いません。利用者向けの�
 - 一時停止中は段階とParameterを変えず、再開時は同じ位置から続ける。
 - 詳細入口では、開始時PromptとTraceを同時に復元し、既存16段階Forwardの`1 / 16`へ接続する。
 
+## Phase 5 — Glassbox AI II 生成ループ優先
+
+- 初心者向け表面は、モデルが実際に使う候補分布を横棒と実数値で表示する。
+- Greedyは最大確率、TemperatureはSeed付き乱数が入った累積確率区間を選び、選択行を枠と記号でも強調する。
+- 選んだTokenを文章の末尾へ追加し、新規Tokenを`NEW`ラベルで示してから、伸びた文で次の候補計算へ戻る。
+- Context Lengthを超えた場合は、次回計算に残るToken列と範囲外へ出たTokenを分けて表示する。
+- 表面の自動再生ではTrainingを実行しない。`Token → Embedding → Attention → Logits → Softmax → Loss → Gradient`を短い視覚導線として下に置き、既存Forward / Training画面へ接続する。
+- 詳細入口では、最後の候補を計算したPromptとclone保存済みTraceを同時に復元する。
+
 ## 次の確認
 
-I / II / IIIの時間方向表示は完了しました。次は第三者初心者testと、画面変更後のScreenshot / overview GIF更新で、このDOM契約と実値一致を再確認します。
+I / II / IIIの時間方向表示は完了しました。次はIIの生成ループを含む第三者初心者再testと、画面変更後のScreenshot / overview GIF更新で、このDOM契約と実値一致を再確認します。

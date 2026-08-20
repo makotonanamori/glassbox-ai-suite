@@ -114,7 +114,7 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - Causal Attention、Vocabulary projection、次Token softmax
 - Reverse-mode autograd、Cross Entropy、SGD、global gradient clipping
 - 16段階Forward Trace、Attention Inspector、Training、Generation、Snapshot
-- 予測16段階 → 学習5段階 → 生成16段階 → Token選択の自動再生、一時停止・再開、速度変更
+- 候補確率 → 1 Token選択 → 文末追加 → 反復を5 Token見せる生成ループ、一時停止・再開、速度変更
 - JSON保存、Seed再現、有限差分Gradient Check
 
 ### Glassbox AI III — `glassbox-ai-iii`
