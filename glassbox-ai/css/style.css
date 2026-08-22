@@ -356,6 +356,112 @@ h1 {
   color: var(--yellow);
 }
 
+.beginner-result {
+  max-width: 1600px;
+  margin: 12px auto 0;
+  padding: 18px;
+  border: 1px solid rgba(78, 230, 255, 0.38);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(9, 28, 36, 0.96), rgba(10, 18, 24, 0.96));
+}
+
+.beginner-result[hidden] {
+  display: none;
+}
+
+.beginner-result h2 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+}
+
+.beginner-result-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--cyan);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.beginner-result-lead {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.beginner-before-after {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.beginner-before-after > div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(5, 12, 17, 0.7);
+}
+
+.beginner-before-after span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.beginner-meter {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.beginner-meter i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+  transition: width 360ms ease;
+}
+
+.beginner-before-after > div:last-child .beginner-meter i {
+  background: var(--cyan);
+}
+
+.beginner-before-after strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.beginner-result-change {
+  margin: 12px 0 0;
+  color: var(--yellow);
+  font-weight: 650;
+}
+
+.name-after-experience {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--cyan);
+  background: rgba(78, 230, 255, 0.07);
+  color: var(--muted);
+}
+
+.next-question {
+  margin: 14px 0 6px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.beginner-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .curriculum-guide {
   max-width: 1600px;
   margin: 12px auto 0;
@@ -1844,6 +1950,10 @@ footer {
     grid-column: auto;
   }
 
+  .beginner-before-after {
+    grid-template-columns: 1fr;
+  }
+
   .span-full {
     grid-column: auto;
   }
@@ -1866,6 +1976,7 @@ footer {
   .lab-grid,
   .status-strip,
   .quick-start,
+  .beginner-result,
   .curriculum-guide {
     margin-right: 8px;
     margin-left: 8px;

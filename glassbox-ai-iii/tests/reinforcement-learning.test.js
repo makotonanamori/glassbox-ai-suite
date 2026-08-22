@@ -13,8 +13,38 @@ import {
 } from '../src/reinforcement-learning.js';
 import {
   advanceToReinforcementVisualBoundary,
+  completePolicyReference,
   continuousEpisodeDelay,
+  createPolicyReference,
 } from '../src/continuous-episode-runner.js';
+
+test('同じ観測で学習前後の方策を再計算して比較する', () => {
+  const network = createNetwork('policy-reference-network');
+  const world = createGridWorld('policy-reference-world');
+  const built = buildReinforcementTimeline(network, world, {
+    randomSeed: 'policy-reference-random',
+    maxSteps: 6,
+    learningRate: 0.05,
+  });
+  const firstExperience = built.experiences[0];
+  const reference = createPolicyReference(
+    network,
+    firstExperience.beforeWorld,
+    firstExperience.inputs,
+    built.config.temperature,
+  );
+  const completed = completePolicyReference(reference, built.finalNetwork);
+
+  assert.notEqual(completed.world, firstExperience.beforeWorld);
+  assert.deepEqual(completed.inputs, firstExperience.inputs);
+  assert.ok(Math.abs(completed.before.reduce((sum, value) => sum + value, 0) - 1) < 1e-12);
+  assert.ok(Math.abs(completed.after.reduce((sum, value) => sum + value, 0) - 1) < 1e-12);
+  assert.deepEqual(
+    completed.deltas,
+    completed.after.map((value, index) => value - completed.before[index]),
+  );
+  assert.ok(completed.deltas.some((value) => Math.abs(value) > 1e-12));
+});
 
 test('4報酬プリセットが実際の遷移種別へ異なる値を適用する', () => {
   assert.equal(Object.keys(REWARD_PROFILES).length, 4);

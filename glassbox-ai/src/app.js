@@ -42,6 +42,8 @@ const PRESETS = Object.freeze({
   negative: { label: 'プリセット3：負の値を含む入力', inputs: [-0.9, 0.4, -0.6, 0.2, 0.1], targetIndex: 2 },
 });
 
+const BEGINNER_ANSWER_NAMES = Object.freeze(['答えA', '答えB', '答えC']);
+
 const quickStartRequest = new URLSearchParams(window.location.search).get('path');
 const requestedQuickStartModes = new Set(['supervised', 'reinforcement', 'explore']);
 
@@ -68,6 +70,9 @@ const elements = Object.fromEntries(
     'rl-diagnostic-label', 'rl-diagnostic-evidence', 'rl-phase', 'rl-current-title',
     'rl-current-description', 'rl-formula', 'rl-explanation', 'rl-experience-body',
     'rl-axis-note', 'rl-history-chart', 'rl-history-body', 'rl-parameter-body', 'rl-parameter-count',
+    'beginner-learning-result', 'beginner-result-answer', 'beginner-result-before-bar',
+    'beginner-result-after-bar', 'beginner-result-before', 'beginner-result-after',
+    'beginner-result-change', 'beginner-repeat-learning', 'beginner-result-detail',
   ].map((id) => [id, document.getElementById(id)]),
 );
 
@@ -477,6 +482,24 @@ function renderComparison(step) {
       ${OUTPUT_NAMES.map((name, index) => `<span>${name}: ${formatNumber(comparison.beforeProbabilities[index] * 100)}% → ${formatNumber(comparison.afterProbabilities[index] * 100)}%</span>`).join('')}
     </div>
   `;
+}
+
+function renderBeginnerLearningResult(step) {
+  const comparison = step.training.comparison;
+  elements['beginner-learning-result'].hidden = !comparison;
+  if (!comparison) return;
+
+  const beforePercent = comparison.targetProbabilityBefore * 100;
+  const afterPercent = comparison.targetProbabilityAfter * 100;
+  const changePoints = comparison.targetProbabilityChange * 100;
+  elements['beginner-result-answer'].textContent = BEGINNER_ANSWER_NAMES[comparison.targetIndex];
+  elements['beginner-result-before-bar'].style.width = `${beforePercent}%`;
+  elements['beginner-result-after-bar'].style.width = `${afterPercent}%`;
+  elements['beginner-result-before'].textContent = `${formatNumber(beforePercent)}%`;
+  elements['beginner-result-after'].textContent = `${formatNumber(afterPercent)}%`;
+  elements['beginner-result-change'].textContent =
+    `正解として指定した「${BEGINNER_ANSWER_NAMES[comparison.targetIndex]}」の選ばれやすさが` +
+    `${formatSigned(changePoints, 'ポイント')}変わりました。`;
 }
 
 function appendRlFormulaLine(fragment, text, status = 'done') {
@@ -916,9 +939,25 @@ function renderQuickStartGuide() {
     ? '▶ 続ける'
     : (playbackActive ? '動いています…' : '▶ 自動で見る');
   elements['experience-pause'].disabled = !playbackActive || playbackPaused;
-  elements['experience-progress'].textContent = supervisedPlaybackRun
-    ? `${supervisedPlaybackRun.completedSteps} / ${supervisedPlaybackRun.totalSteps} ステップ`
-    : `0 / ${SUPERVISED_PLAYBACK_DEFAULTS.totalSteps} ステップ`;
+  let progressLabel = '始める前';
+  if (supervisedPlaybackRun?.complete) {
+    progressLabel = '結果を比べました';
+  } else if (supervisedPlaybackRun) {
+    const stage = engine.current.stage;
+    if (stage === 'forward-after-update' || stage === 'comparison') {
+      progressLabel = '同じ問題をもう一度予測しています';
+    } else if (
+      stage === 'one-hot' || stage === 'loss' || stage === 'output-error' ||
+      stage === 'propagate-hidden' || stage === 'tanh-derivative' ||
+      stage.startsWith('gradient-') || stage.startsWith('update-')
+    ) {
+      progressLabel = '間違いを手がかりに直しています';
+    } else {
+      progressLabel = '予測を作っています';
+    }
+    if (playbackPaused) progressLabel += '（一時停止）';
+  }
+  elements['experience-progress'].textContent = progressLabel;
 
   const flowState = experienceState === 'detail' ? 'ready' : experienceState;
   const flowOrder = { ready: 0, running: 1, complete: 2 };
@@ -937,7 +976,7 @@ function beginnerPlaybackMessage(step) {
   }
   if (step.stage === 'softmax') return '3つの選択肢が、合計100%の確率になりました。';
   if (step.stage === 'argmax') return `${step.title}。次に正解との差を測ります。`;
-  if (step.stage === 'one-hot') return `今回の正解「${OUTPUT_NAMES[targetIndex]}」を数値にしました。`;
+  if (step.stage === 'one-hot') return `今回の正解「${BEGINNER_ANSWER_NAMES[targetIndex]}」を数値にしました。`;
   if (step.stage === 'loss') return `予測と正解のずれを測りました。ずれの大きさは${formatNumber(step.training.loss)}です。`;
   if (step.stage.startsWith('gradient-') || ['output-error', 'propagate-hidden', 'tanh-derivative'].includes(step.stage)) {
     return `正解との差を、関係した数字へ戻しています。${step.title}`;
@@ -999,12 +1038,12 @@ async function continueSupervisedPlayback(run) {
     const comparison = engine.current.training.comparison;
     experienceState = 'complete';
     experienceMessage =
-      `結果が出ました。正解「${OUTPUT_NAMES[targetIndex]}」の選ばれやすさが ` +
+      `結果が出ました。正解「${BEGINNER_ANSWER_NAMES[targetIndex]}」の選ばれやすさが ` +
       `${formatNumber(comparison.targetProbabilityBefore * 100)}% → ` +
       `${formatNumber(comparison.targetProbabilityAfter * 100)}% に変わりました。`;
     addLog(`[教師あり自動再生] 完了：${experienceMessage}`);
     render();
-    elements.comparison.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    elements['beginner-learning-result'].scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) {
     if (token !== supervisedPlaybackToken) return;
     run.complete = true;
@@ -1040,7 +1079,7 @@ function startSupervisedPlayback() {
     complete: false,
   };
   experienceState = 'running';
-  experienceMessage = '0 / 139ステップ。入力から予測を作り始めます。';
+  experienceMessage = '同じ問題で、予測する → 間違いから直す → もう一度予測する流れを始めます。';
   addLog('[教師あり自動再生] 139ステップの表示を開始');
   render();
   elements['network-svg'].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1099,6 +1138,7 @@ function render() {
   renderOutputSummary(step);
   renderParameters(step);
   renderComparison(step);
+  renderBeginnerLearningResult(step);
   renderRlPanel();
   renderLog();
   renderQuickStartGuide();
@@ -1357,6 +1397,8 @@ function bindEvents() {
   });
   elements['quick-explore'].addEventListener('click', showBeginnerDetail);
   elements['experience-pause'].addEventListener('click', pauseSupervisedPlayback);
+  elements['beginner-repeat-learning'].addEventListener('click', startSupervisedPlayback);
+  elements['beginner-result-detail'].addEventListener('click', showBeginnerDetail);
 
   elements['apply-preset'].addEventListener('click', () => {
     const preset = PRESETS[elements['preset-select'].value];

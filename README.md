@@ -103,6 +103,7 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - tanh、softmax、cross entropy、SGD
 - 教師あり139ステップ数学タイムライン
 - 139 snapshotの自動再生、一時停止・再開、速度変更
+- 初心者向け完了面で、同じ問題の正解候補を「答えA / B / C」として学習前後比較し、そのままもう1回試せる
 - JSON保存、Seed再現、全39勾配チェック
 
 このdirectoryのcanonicalな責務は教師あり学習です。分離前のGrid World / REINFORCE実装は保存形式と回帰検証の互換層として内部に凍結保持しますが、通常UIとシリーズ導線には表示しません。
@@ -114,8 +115,9 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - Causal Attention、Vocabulary projection、次Token softmax
 - Reverse-mode autograd、Cross Entropy、SGD、global gradient clipping
 - 16段階Forward Trace、Attention Inspector、Training、Generation、Snapshot
-- 候補確率 → 1 Token選択 → 文末追加 → 反復を5 Token見せる生成ループ、一時停止・再開、速度変更
+- 候補確率 → 1つ選択 → 文末追加 → 反復を5回見せる生成ループ、一時停止・再開、速度変更
 - 同じPromptの学習前／500回後を、候補確率・生成文・Corpus平均Lossで並べる初心者向け実Training比較
+- 初回面では候補・選択・追加を先に見せ、最初の選択後に正式名称「Token」へ接続する
 - JSON保存、Seed再現、有限差分Gradient Check
 
 ### Glassbox AI III — `glassbox-ai-iii`
@@ -125,6 +127,7 @@ Series landingの静止画は[こちら](./docs/media/landing.png)です。
 - 環境履歴、探索/活用、累積報酬、割引Return
 - REINFORCE方策勾配と全39 Parameter更新
 - 10エピソードの実移動を連続表示し、一時停止・再開・速度変更
+- 10回の前後で最初と同じ観測を再計算し、行動ごとの選ばれやすさが実際にどう変化したかを比較する
 - 完全snapshotのRL専用因果timeline、履歴JSON、Seed再現
 
 ## 三つの学習信号

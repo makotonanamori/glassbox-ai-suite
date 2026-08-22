@@ -78,8 +78,8 @@ function renderFirstRunGuide() {
   $("#guide-training").disabled = learningActive;
   $("#experience-pause").disabled = !playbackActive || playbackPaused;
   $("#experience-progress").textContent = experiencePlaybackRun
-    ? `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Token`
-    : `0 / ${LANGUAGE_PLAYBACK_DEFAULTS.tokens} Token`;
+    ? `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens}回`
+    : `0 / ${LANGUAGE_PLAYBACK_DEFAULTS.tokens}回`;
   setExperienceControlsLocked(playbackActive || learningActive);
 
   const flowState = experienceState === "detail" ? "ready" : experienceState;
@@ -147,7 +147,7 @@ function pauseLanguagePlayback() {
   experiencePlaybackRun.paused = true;
   experienceState = "running";
   const phase = GENERATION_PHASES[experiencePlaybackRun.displayPhaseIndex];
-  experienceMessage = `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Token、` +
+  experienceMessage = `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens}回、` +
     `「${phase.label}」で一時停止しました。「続ける」で再開できます。`;
   renderFirstRunGuide();
 }
@@ -196,6 +196,7 @@ function renderGenerationObserver() {
   const selectedToken = run?.selectedId == null ? null : tokenizer.vocabulary[run.selectedId];
   $("#beginner-selected-token").textContent = selectedToken ?? "?";
   $("#beginner-selected-token").classList.toggle("chosen", selectedToken != null);
+  $("#token-name-bridge").hidden = !run || (run.completedTokens === 0 && selectedToken == null);
   if (!selectedToken) {
     $("#beginner-selection-note").textContent = "まだ選んでいません";
   } else if (run.mode === "greedy") {
@@ -377,11 +378,11 @@ function runLearningObserver() {
 }
 
 function generationPlaybackMessage(phase, run) {
-  if (phase.key === "candidates") return "次に来るTokenの候補確率が出ました。棒の長さと実数値は同じ確率です。";
+  if (phase.key === "candidates") return "次に来そうな候補と確率が出ました。棒の長さと数字は同じ確率です。";
   const token = tokenizer.vocabulary[run.selectedId];
   if (phase.key === "selection") return `候補から「${token}」を1個選びました。`;
   if (phase.key === "append") {
-    return token === "<EOS>" ? "文章の終わりを表すTokenを選びました。" : `「${token}」を文末へ足しました。文章が1 Token伸びました。`;
+    return token === "<EOS>" ? "文章の終わりを表すものを選びました。" : `「${token}」を文末へ足しました。文章が1つ伸びました。`;
   }
   return run.ended ? "文章の終わりに到達しました。" : "伸びた文章を使って、次のToken予測へ戻ります。";
 }
@@ -452,16 +453,16 @@ async function continueLanguagePlayback(run) {
       if (finished) {
         run.complete = true;
         experienceState = "complete";
-        experienceMessage = run.ended
-          ? `文章の終わりを選び、${run.completedTokens} Tokenで生成を止めました。`
-          : `${run.completedTokens}回、候補から1 Tokenを選びました。文が「${tokenizer.detokenize(run.visibleTokens)}」まで伸びました。`;
+      experienceMessage = run.ended
+          ? `文章の終わりを選び、${run.completedTokens}回で生成を止めました。`
+          : `${run.completedTokens}回、候補から1つずつ選びました。文が「${tokenizer.detokenize(run.visibleTokens)}」まで伸びました。`;
       }
       renderFirstRunGuide();
       if (run.complete) break;
       await new Promise((resolve) => window.setTimeout(resolve, languagePlaybackDelay($("#experience-speed").value)));
     }
     if (token !== experiencePlaybackToken || run.paused || !run.complete) return;
-    setNotice(`${run.completedTokens} Tokenの生成ループを実値で完了しました。`);
+    setNotice(`${run.completedTokens}回の生成ループを実際の値で完了しました。`);
     $("#generation-observer").scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (error) {
     if (token !== experiencePlaybackToken) return;
@@ -477,7 +478,7 @@ function runBeginnerAutoObserve() {
   if (experiencePlaybackRun?.paused) {
     experiencePlaybackRun.paused = false;
     experienceState = "running";
-    experienceMessage = `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens} Tokenから再開します。`;
+    experienceMessage = `${experiencePlaybackRun.completedTokens} / ${experiencePlaybackRun.totalTokens}回から再開します。`;
     renderFirstRunGuide();
     void continueLanguagePlayback(experiencePlaybackRun);
     return;
@@ -516,8 +517,8 @@ function runBeginnerAutoObserve() {
   };
   firstRunMode = "forward";
   experienceState = "running";
-  experienceMessage = "まず、次に来るToken候補の確率を計算します。";
-  setNotice("候補確率 → Token選択 → 文への追加を繰り返します。");
+  experienceMessage = "まず、次に来そうな候補の確率を計算します。";
+  setNotice("候補の確率 → 1つ選ぶ → 文へ追加、を繰り返します。");
   renderFirstRunGuide();
   $("#generation-observer").scrollIntoView({ behavior: "smooth", block: "center" });
   void continueLanguagePlayback(experiencePlaybackRun);

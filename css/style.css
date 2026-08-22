@@ -280,6 +280,21 @@ footer {
   color: var(--muted);
 }
 
+.experiment-details {
+  margin-top: 12px;
+  color: var(--quiet);
+  font-size: 12px;
+}
+
+.experiment-details summary {
+  cursor: pointer;
+  color: var(--cyan);
+}
+
+.experiment-details p {
+  margin: 8px 0 0;
+}
+
 .experiment ul {
   display: flex;
   flex-wrap: wrap;

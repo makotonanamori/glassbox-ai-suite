@@ -8,9 +8,11 @@ test("series landing has unique IDs and three explicit learning paths", async ()
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length);
-  assert.match(html, /正解との誤差から学ぶ/);
-  assert.match(html, /行動の結果から学ぶ/);
-  assert.match(html, /次Tokenの誤差から学ぶ/);
+  assert.match(html, /予測は、どうやって上手になる？/);
+  assert.match(html, /文章は、どうやって続いていく？/);
+  assert.match(html, /良い・悪い結果から、行動はどう変わる？/);
+  assert.doesNotMatch(html, /約[0-9]+分/);
+  assert.equal((html.match(/class="experiment-details"/g) ?? []).length, 3);
   assert.match(html, /href="\.\/glassbox-ai\/\?path=auto"/);
   assert.match(html, /href="\.\/glassbox-ai-iii\/\?path=auto"/);
   assert.match(html, /href="\.\/glassbox-ai-ii\/\?path=auto"/);

@@ -33,7 +33,9 @@ import { serializeReinforcementHistory } from './reinforcement-history.js';
 import {
   CONTINUOUS_EPISODE_DEFAULTS,
   advanceToReinforcementVisualBoundary,
+  completePolicyReference,
   continuousEpisodeDelay,
+  createPolicyReference,
 } from './continuous-episode-runner.js';
 
 const PRESETS = Object.freeze({
@@ -68,6 +70,9 @@ const elements = Object.fromEntries(
     'rl-diagnostic-label', 'rl-diagnostic-evidence', 'rl-phase', 'rl-current-title',
     'rl-current-description', 'rl-formula', 'rl-explanation', 'rl-experience-body',
     'rl-axis-note', 'rl-history-chart', 'rl-history-body', 'rl-parameter-body', 'rl-parameter-count',
+    'rl-beginner-result', 'rl-beginner-result-count', 'rl-beginner-foods', 'rl-beginner-collisions',
+    'rl-beginner-danger', 'rl-beginner-reference-grid', 'rl-beginner-policy-comparison',
+    'rl-beginner-result-note', 'rl-beginner-continue', 'rl-beginner-detail',
   ].map((id) => [id, document.getElementById(id)]),
 );
 
@@ -843,6 +848,50 @@ function renderRlParameters(step) {
   }
 }
 
+function renderRlBeginnerResult() {
+  const run = rlContinuousRun;
+  const result = run?.complete ? run.reference : null;
+  elements['rl-beginner-result'].hidden = !result?.after;
+  if (!result?.after) return;
+
+  const total = (key) => run.summaries.reduce((sum, summary) => sum + summary[key], 0);
+  elements['rl-beginner-result-count'].textContent = `${run.targetEpisodes}回`;
+  elements['rl-beginner-foods'].textContent = `${total('foods')}個`;
+  elements['rl-beginner-collisions'].textContent = `${total('collisions')}回`;
+  elements['rl-beginner-danger'].textContent = `${total('dangerHits')}回`;
+  renderGridBoard(elements['rl-beginner-reference-grid'], result.world);
+
+  const fragment = document.createDocumentFragment();
+  result.after.forEach((after, index) => {
+    const before = result.before[index];
+    const deltaPoints = (after - before) * 100;
+    const row = document.createElement('div');
+    row.className = 'rl-beginner-policy-row';
+
+    const label = document.createElement('strong');
+    label.textContent = GRID_ACTIONS[index].label;
+    const meter = document.createElement('div');
+    meter.className = 'rl-beginner-policy-meter';
+    meter.setAttribute('aria-hidden', 'true');
+    const bar = document.createElement('i');
+    bar.style.width = `${after * 100}%`;
+    const marker = document.createElement('b');
+    marker.style.left = `${before * 100}%`;
+    meter.append(bar, marker);
+    const value = document.createElement('span');
+    value.textContent = `${(before * 100).toFixed(1)}% → ${(after * 100).toFixed(1)}%（${deltaPoints >= 0 ? '+' : ''}${deltaPoints.toFixed(1)}ポイント）`;
+    row.append(label, meter, value);
+    fragment.append(row);
+  });
+  elements['rl-beginner-policy-comparison'].replaceChildren(fragment);
+
+  const largestIndex = result.deltas.reduce(
+    (best, value, index, values) => Math.abs(value) > Math.abs(values[best]) ? index : best,
+    0,
+  );
+  elements['rl-beginner-result-note'].textContent = `同じ場面で最も変わったのは「${GRID_ACTIONS[largestIndex].label}」です：${(result.before[largestIndex] * 100).toFixed(1)}% → ${(result.after[largestIndex] * 100).toFixed(1)}%。`;
+}
+
 function renderRlPanel() {
   const step = rlEngine?.current ?? null;
   const profile = getRewardProfile(elements['rl-reward-profile'].value || RL_DEFAULTS.rewardProfile);
@@ -868,6 +917,7 @@ function renderRlPanel() {
   renderRlParameters(step);
   renderRlHistoryChart();
   renderRlHistoryTable();
+  renderRlBeginnerResult();
 
   const diagnostic = step?.stage === 'rl-comparison' ? step.details.summary.diagnostic : null;
   const diagnosticBox = elements['rl-diagnostic-label'].parentElement;
@@ -927,8 +977,8 @@ function renderQuickStartGuide() {
     : (continuousActive ? '動いています…' : '▶ 自動で見る');
   elements['experience-pause'].disabled = !continuousActive || continuousPaused;
   elements['experience-progress'].textContent = rlContinuousRun
-    ? `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes} エピソード`
-    : `0 / ${CONTINUOUS_EPISODE_DEFAULTS.count} エピソード`;
+    ? `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}回`
+    : `0 / ${CONTINUOUS_EPISODE_DEFAULTS.count}回`;
 
   const flowState = experienceState === 'detail' ? 'ready' : experienceState;
   const flowOrder = { ready: 0, running: 1, complete: 2 };
@@ -957,7 +1007,7 @@ function pauseContinuousRlRun() {
   rlContinuousToken += 1;
   rlContinuousRun.paused = true;
   experienceState = 'running';
-  experienceMessage = `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}エピソードで一時停止しました。「続ける」で再開できます。`;
+  experienceMessage = `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}回で一時停止しました。「続ける」で再開できます。`;
   addLog(`[RL連続] ${rlContinuousRun.completed}/${rlContinuousRun.targetEpisodes}で一時停止`);
   render();
 }
@@ -969,6 +1019,15 @@ async function continueContinuousRlRun(run) {
       if (!rlEngine || rlEngine.isComplete) {
         if (!startRlEpisode({ confirmDiscard: false })) throw new Error('エピソードを開始できませんでした。');
         run.currentEpisodeNumber = rlEngine.config.episodeNumber;
+        if (!run.reference) {
+          const firstExperience = rlEngine.experiences[0];
+          run.reference = createPolicyReference(
+            rlEngine.steps[0].network,
+            firstExperience.beforeWorld,
+            firstExperience.inputs,
+            rlEngine.config.temperature,
+          );
+        }
         experienceMessage = `エピソード${run.currentEpisodeNumber}を開始しました。AIの移動を観察してください。`;
         render();
       }
@@ -999,11 +1058,12 @@ async function continueContinuousRlRun(run) {
     run.complete = true;
     const totalReward = run.summaries.reduce((sum, summary) => sum + summary.cumulativeReward, 0);
     const totalFoods = run.summaries.reduce((sum, summary) => sum + summary.foods, 0);
+    run.reference = completePolicyReference(run.reference, engine.current.network);
     experienceState = 'complete';
-    experienceMessage = `${run.targetEpisodes}回の試行が終わりました。合計${formatSigned(totalReward)}点、餌${totalFoods}個です。履歴で回ごとの変化を見られます。`;
+    experienceMessage = `${run.targetEpisodes}回の試行が終わりました。同じ場面で、行動の選びやすさがどう変わったか比べます。`;
     addLog(`[RL連続] 完了：${run.targetEpisodes}エピソード、合計報酬${totalReward}、餌${totalFoods}`);
     render();
-    elements['rl-history-chart'].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    elements['rl-beginner-result'].scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) {
     if (token !== rlContinuousToken) return;
     run.complete = true;
@@ -1022,7 +1082,7 @@ function startContinuousRlEpisodes({
   if (rlContinuousRun?.paused) {
     rlContinuousRun.paused = false;
     experienceState = 'running';
-    experienceMessage = `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}エピソードから再開します。`;
+    experienceMessage = `${rlContinuousRun.completed} / ${rlContinuousRun.targetEpisodes}回から再開します。`;
     addLog('[RL連続] 再開');
     render();
     void continueContinuousRlRun(rlContinuousRun);
@@ -1046,9 +1106,10 @@ function startContinuousRlEpisodes({
     paused: false,
     complete: false,
     summaries: [],
+    reference: null,
   };
   experienceState = 'running';
-  experienceMessage = `0 / ${count}エピソード。小さな世界で試行錯誤を始めます。`;
+  experienceMessage = `0 / ${count}回。小さな世界で試行錯誤を始めます。`;
   addLog(`[RL連続] ${count}エピソードの表示を開始`);
   render();
   elements['rl-grid-board'].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1322,6 +1383,8 @@ function bindEvents() {
   });
   elements['quick-reinforcement'].addEventListener('click', runBeginnerAutoObserve);
   elements['quick-explore'].addEventListener('click', showBeginnerDetail);
+  elements['rl-beginner-continue'].addEventListener('click', () => startContinuousRlEpisodes({ confirmDiscard: false }));
+  elements['rl-beginner-detail'].addEventListener('click', showBeginnerDetail);
   elements['experience-pause'].addEventListener('click', pauseContinuousRlRun);
 
   elements['apply-preset'].addEventListener('click', () => {

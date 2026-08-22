@@ -48,53 +48,50 @@
             <p class="eyebrow">LEARNING PATH</p>
             <h2 id="path-heading">見たい動きを選ぶ</h2>
           </div>
-          <p>三つのモデルは学習信号が異なります。どれも表示専用のダミー値ではなく、画面に表示した値で実際に学習します。</p>
+          <p>いま気になる問いから選べます。見た現象のすぐ次に、それとつながる操作を試せます。</p>
         </div>
 
         <div class="experiment-list">
           <article class="experiment" aria-labelledby="supervised-title">
-            <div class="experiment-index"><span>I</span><small>約3分</small></div>
+            <div class="experiment-index"><span>I</span></div>
             <div class="experiment-content">
-              <p class="signal-label">Glassbox AI I · 学習信号：人が指定する正解</p>
-              <h3 id="supervised-title">正解との誤差から学ぶ</h3>
-              <p>5→4→3のニューラルネットで、入力、重み付き和、softmax、Loss、全39 Parameterの更新を一計算ずつ確認します。</p>
-              <ul>
-                <li>順伝播と予測確率</li>
-                <li>誤差逆伝播と勾配</li>
-                <li>学習前後の確率・Loss比較</li>
-              </ul>
+              <p class="signal-label">Glassbox AI I · 間違いから直す</p>
+              <h3 id="supervised-title">予測は、どうやって上手になる？</h3>
+              <p>同じ問題を予測し、間違いを手がかりに内部の数字を直し、もう一度予測する変化を見ます。</p>
+              <details class="experiment-details">
+                <summary>この実験で使っている仕組みの名前</summary>
+                <p>5→4→3のニューラルネットで、順伝播、softmax、Loss、誤差逆伝播、全39 Parameterの更新を実際に計算します。</p>
+              </details>
             </div>
-            <a class="experiment-link" href="./glassbox-ai/?path=auto">Iを自動で見る <span aria-hidden="true">→</span></a>
+            <a class="experiment-link" href="./glassbox-ai/?path=auto">予測して、間違いを直す様子を見る <span aria-hidden="true">→</span></a>
           </article>
 
           <article class="experiment language" aria-labelledby="language-title">
-            <div class="experiment-index"><span>II</span><small>約3分</small></div>
+            <div class="experiment-index"><span>II</span></div>
             <div class="experiment-content">
-              <p class="signal-label">Glassbox AI II · 学習信号：実際に次に現れたToken</p>
-              <h3 id="language-title">次Tokenの誤差から学ぶ</h3>
-              <p>極小Transformerで、Token、Embedding、2-Head Attention、Logits、次Token確率、Cross Entropy、SGD更新を観察します。</p>
-              <ul>
-                <li>16段階のForward Trace</li>
-                <li>Causal Attentionの実数値</li>
-                <li>言語モデルの学習前後比較</li>
-              </ul>
+              <p class="signal-label">Glassbox AI II · 次の候補を選ぶ</p>
+              <h3 id="language-title">文章は、どうやって続いていく？</h3>
+              <p>次に来そうな候補が並び、1つ選ばれ、文章に足されると次の候補が変わる様子を見ます。</p>
+              <details class="experiment-details">
+                <summary>この実験で使っている仕組みの名前</summary>
+                <p>極小Transformerで、Token、Embedding、2-Head Attention、Logits、次Token確率、Cross Entropy、SGD更新を実際に計算します。</p>
+              </details>
             </div>
-            <a class="experiment-link" href="./glassbox-ai-ii/?path=auto">IIを自動で見る <span aria-hidden="true">→</span></a>
+            <a class="experiment-link" href="./glassbox-ai-ii/?path=auto">候補を選んで文章が伸びる様子を見る <span aria-hidden="true">→</span></a>
           </article>
 
           <article class="experiment" aria-labelledby="reinforcement-title">
-            <div class="experiment-index"><span>III</span><small>約4分</small></div>
+            <div class="experiment-index"><span>III</span></div>
             <div class="experiment-content">
-              <p class="signal-label">Glassbox AI III · 学習信号：環境から得る報酬</p>
-              <h3 id="reinforcement-title">行動の結果から学ぶ</h3>
-              <p>7×7環境で、観測、確率的行動、環境遷移、累積報酬、割引Return、REINFORCE方策更新を別タイムラインで追跡します。</p>
-              <ul>
-                <li>環境履歴とエピソード</li>
-                <li>探索と活用</li>
-                <li>報酬から全39 Parameter更新</li>
-              </ul>
+              <p class="signal-label">Glassbox AI III · 行動の結果から変える</p>
+              <h3 id="reinforcement-title">良い・悪い結果から、行動はどう変わる？</h3>
+              <p>小さな世界で行動し、ごほうびやペナルティを受けたあと、同じ場面での選び方がどう変わるかを見ます。</p>
+              <details class="experiment-details">
+                <summary>この実験で使っている仕組みの名前</summary>
+                <p>7×7環境で、観測、確率的行動、累積報酬、割引Return、REINFORCE方策更新を実際に計算します。</p>
+              </details>
             </div>
-            <a class="experiment-link" href="./glassbox-ai-iii/?path=auto">IIIを自動で見る <span aria-hidden="true">→</span></a>
+            <a class="experiment-link" href="./glassbox-ai-iii/?path=auto">行動して、次の選び方が変わる様子を見る <span aria-hidden="true">→</span></a>
           </article>
         </div>
       </section>

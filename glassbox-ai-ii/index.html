@@ -24,12 +24,14 @@
         <label>表示桁 <select id="precision"><option value="2">2</option><option value="4" selected>4</option><option value="6">6</option></select></label>
         <button id="reinitialize" class="danger-quiet">Seedから再初期化</button>
       </div>
+      <div class="instrument-strip" aria-label="モデル情報">
+        <span>Parameters <strong id="parameter-count">—</strong></span>
+        <span>Vocabulary <strong id="vocab-count">—</strong></span>
+        <span>Training step <strong id="training-step-global">0</strong></span>
+      </div>
     </details>
     <div class="status-strip">
       <span id="model-status" class="status-ok">READY</span>
-      <span>Parameters <strong id="parameter-count">—</strong></span>
-      <span>Vocabulary <strong id="vocab-count">—</strong></span>
-      <span>Training step <strong id="training-step-global">0</strong></span>
       <span id="notice" role="status" aria-live="polite">初期モデルを観察できます。</span>
     </div>
   </header>
@@ -41,7 +43,7 @@
       <p class="microcopy">仕組みの名前はあとで大丈夫です。候補が出て、1語が選ばれ、文末へ付く様子を見てください。</p>
     </div>
     <div class="first-run-actions" aria-label="初回観察コース">
-      <button id="guide-forward" type="button" class="first-run-action primary selected" aria-pressed="true" data-experience-mode="auto"><strong>▶ 文章が伸びる様子を見る</strong><span>候補 → 選択 → 追加を5 Token繰り返します</span></button>
+      <button id="guide-forward" type="button" class="first-run-action primary selected" aria-pressed="true" data-experience-mode="auto"><strong>▶ 文章が伸びる様子を見る</strong><span>候補 → 選択 → 追加を5回繰り返します</span></button>
       <button id="guide-training" type="button" class="first-run-action" aria-pressed="false" data-experience-mode="detail"><strong>1ステップずつ詳しく見る</strong><span>今見た予測を、数値の入口まで戻して確認します</span></button>
     </div>
     <ol class="experience-flow" aria-label="自動で見る流れ"><li data-flow-step="start" class="active">1 スタート</li><li data-flow-step="motion">2 1語ずつ伸びる</li><li data-flow-step="result">3 できた文</li></ol>
@@ -49,7 +51,7 @@
       <button id="experience-pause" type="button" disabled>一時停止</button>
       <label for="experience-speed">速さ</label>
       <select id="experience-speed"><option value="0.5">0.5倍</option><option value="1">1倍</option><option value="2" selected>2倍</option><option value="4">4倍</option></select>
-      <strong id="experience-progress">0 / 5 Token</strong>
+      <strong id="experience-progress">0 / 5回</strong>
     </div>
     <p id="first-run-status" class="first-run-status" role="status" aria-live="polite">「文章が伸びる様子を見る」を押してください。</p>
   </section>
@@ -71,15 +73,19 @@
         <div id="beginner-sentence" class="beginner-token-line"><span class="placeholder-token">the cat eats</span></div>
       </section>
       <section class="generation-candidate-card">
-        <p class="visual-label">次の1 Token候補</p>
+        <p class="visual-label">次に続きそうな候補</p>
         <div id="beginner-candidates" class="beginner-candidates"><div class="candidate-placeholder">STARTを押すと、実際の確率が並びます</div></div>
       </section>
       <section class="generation-selection-card">
-        <p class="visual-label">選ばれたToken</p>
+        <p class="visual-label">今回選ばれたもの</p>
         <div id="beginner-selected-token" class="selected-token-orb">?</div>
         <p id="beginner-selection-note">まだ選んでいません</p>
       </section>
     </div>
+    <aside id="token-name-bridge" class="name-after-experience" hidden>
+      <strong>名前を知る</strong>
+      <span>文章を作るときに1回ずつ選ぶ、このまとまりを「Token（トークン）」と呼びます。単語だけでなく、記号になることもあります。</span>
+    </aside>
     <div class="context-window-card">
       <div><p class="visual-label">次の予測で見る範囲</p><div id="beginner-context" class="context-token-line">—</div></div>
       <div id="beginner-dropped" class="context-drop" hidden><span>範囲の外へ</span><strong>—</strong></div>
@@ -132,7 +138,7 @@
         <div class="learning-result-heading"><span>練習前</span><strong id="learning-before-choice">—</strong></div>
         <p class="visual-label">候補の確率</p>
         <div id="learning-before-candidates" class="beginner-candidates"><div class="candidate-placeholder">開始すると固定します</div></div>
-        <p class="visual-label">そのまま5 Token伸ばすと</p>
+        <p class="visual-label">そのまま5回続けると</p>
         <div id="learning-before-sentence" class="beginner-token-line"><span class="placeholder-token">—</span></div>
         <div class="learning-metrics"><span>fish の確率 <strong id="learning-before-target">—</strong></span><span>お手本との差 <strong id="learning-before-loss">—</strong></span></div>
       </section>
@@ -141,7 +147,7 @@
         <div class="learning-result-heading"><span id="learning-after-label">いま</span><strong id="learning-after-choice">—</strong></div>
         <p class="visual-label">候補の確率</p>
         <div id="learning-after-candidates" class="beginner-candidates"><div class="candidate-placeholder">練習中に変わります</div></div>
-        <p class="visual-label">そのまま5 Token伸ばすと</p>
+        <p class="visual-label">そのまま5回続けると</p>
         <div id="learning-after-sentence" class="beginner-token-line"><span class="placeholder-token">—</span></div>
         <div class="learning-metrics"><span>fish の確率 <strong id="learning-after-target">—</strong></span><span>お手本との差 <strong id="learning-after-loss">—</strong></span></div>
       </section>

@@ -23,6 +23,9 @@ test("初回ガイドは生成ループを先に見せ、内部Traceを詳細へ
   assert.match(html, /id="beginner-sentence"/);
   assert.match(html, /id="beginner-candidates"/);
   assert.match(html, /id="beginner-selected-token"/);
+  assert.match(html, /id="token-name-bridge"/);
+  assert.match(html, /このまとまりを「Token（トークン）」/);
+  assert.match(html, /候補 → 選択 → 追加を5回/);
   assert.match(html, /候補の確率/);
   assert.match(html, /文末へ足す/);
   assert.match(html, /id="learning-observer"/);

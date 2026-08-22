@@ -1,3 +1,7 @@
+import { forwardPass } from './forward-pass.js';
+import { cloneGridWorld } from './grid-world.js';
+import { temperaturePolicy } from './policy-gradient.js';
+
 const VISUAL_STAGES = new Set(['rl-transition', 'rl-comparison']);
 
 export const CONTINUOUS_EPISODE_DEFAULTS = Object.freeze({
@@ -38,4 +42,34 @@ export function advanceToReinforcementVisualBoundary(engine, onStep = () => {}) 
   }
 
   return { step: engine.current, advancedSteps, complete: engine.isComplete };
+}
+
+export function createPolicyReference(network, world, inputs, temperature = 1) {
+  const before = temperaturePolicy(forwardPass(network, inputs).logits, temperature).probabilities;
+  return {
+    world: cloneGridWorld(world),
+    inputs: [...inputs],
+    temperature,
+    before: [...before],
+    after: null,
+    deltas: null,
+  };
+}
+
+export function completePolicyReference(reference, network) {
+  if (!reference || !Array.isArray(reference.inputs) || !Array.isArray(reference.before)) {
+    throw new TypeError('比較元の方策が必要です。');
+  }
+  const after = temperaturePolicy(
+    forwardPass(network, reference.inputs).logits,
+    reference.temperature,
+  ).probabilities;
+  return {
+    ...reference,
+    world: cloneGridWorld(reference.world),
+    inputs: [...reference.inputs],
+    before: [...reference.before],
+    after: [...after],
+    deltas: after.map((value, index) => value - reference.before[index]),
+  };
 }

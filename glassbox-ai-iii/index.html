@@ -67,9 +67,50 @@
           <option value="2" selected>2倍</option>
           <option value="4">4倍</option>
         </select>
-        <strong id="experience-progress">0 / 10 エピソード</strong>
+        <strong id="experience-progress">0 / 10回</strong>
       </div>
       <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite">「自動で見る」を押してください。</div>
+    </section>
+
+    <section id="rl-beginner-result" class="beginner-result" aria-labelledby="rl-beginner-result-heading" hidden>
+      <div class="beginner-result-heading">
+        <div>
+          <p class="eyebrow">WHAT CHANGED?</p>
+          <h2 id="rl-beginner-result-heading">結果を使ったあと、選び方が変わった</h2>
+        </div>
+        <strong id="rl-beginner-result-count" class="beginner-result-badge">10回</strong>
+      </div>
+      <div class="rl-beginner-summary" aria-label="試行結果の要約">
+        <div><span>餌を取れた</span><strong id="rl-beginner-foods">—</strong></div>
+        <div><span>ぶつかった</span><strong id="rl-beginner-collisions">—</strong></div>
+        <div><span>危険に入った</span><strong id="rl-beginner-danger">—</strong></div>
+      </div>
+      <div class="rl-reference-comparison">
+        <div class="rl-reference-scene">
+          <p class="visual-label">最初と同じ場面</p>
+          <div id="rl-beginner-reference-grid" class="grid-board rl-beginner-reference-grid" role="grid" aria-label="選び方を比較する最初と同じ場面"></div>
+        </div>
+        <div>
+          <p class="beginner-result-lead">この場面で、どの行動を選びやすいかを同じ条件で比べます。</p>
+          <div id="rl-beginner-policy-comparison" class="rl-beginner-policy-comparison"></div>
+        </div>
+      </div>
+      <p id="rl-beginner-result-note" class="beginner-result-change">—</p>
+      <p>試行の結果を使って内部の数字を直したため、同じ場面でも選びやすさが変わりました。良くなったと決めつけず、実際の変化をそのまま表示しています。</p>
+      <aside class="name-after-experience">
+        <strong>名前を知る</strong>
+        <span>行動ごとの選ばれやすさを「方策（Policy）」と呼びます。</span>
+      </aside>
+      <div class="next-question">
+        <div>
+          <span>次はどうなる？</span>
+          <strong>さらに試すと、同じ場面の選び方はどう変わる？</strong>
+        </div>
+        <div class="beginner-result-actions">
+          <button id="rl-beginner-continue" type="button" class="primary">さらに10回試して比べる</button>
+          <button id="rl-beginner-detail" type="button">1回分を止めながら見る</button>
+        </div>
+      </div>
     </section>
 
     <details class="curriculum-guide">

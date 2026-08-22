@@ -43,9 +43,9 @@
       </div>
       <div class="quick-start-paths" aria-label="観察コース">
         <button id="quick-supervised" type="button" class="quick-path primary selected" aria-pressed="true" data-experience-mode="auto">
-          <span>おすすめ · 139段階を自動再生</span>
+          <span>おすすめ</span>
           <strong>▶ 自動で見る</strong>
-          <small>予測、誤差、更新、結果の変化を順番に見ます</small>
+          <small>予測する → 間違いから直す → もう一度予測する</small>
         </button>
         <button id="quick-reinforcement" type="button" class="quick-path" aria-pressed="false" hidden data-legacy-compatibility>
           <span>第三弾 · 別タイムライン</span>
@@ -72,9 +72,48 @@
           <option value="2">2倍</option>
           <option value="4" selected>4倍</option>
         </select>
-        <strong id="experience-progress">0 / 139 ステップ</strong>
+        <strong id="experience-progress">始める前</strong>
       </div>
       <div id="quick-start-status" class="quick-start-status" role="status" aria-live="polite">「自動で見る」を押してください。</div>
+    </section>
+
+    <section id="beginner-learning-result" class="beginner-result" aria-labelledby="beginner-learning-result-heading" hidden>
+      <div class="beginner-result-heading">
+        <div>
+          <p class="eyebrow">WHAT CHANGED?</p>
+          <h2 id="beginner-learning-result-heading">1回直したら、予測が変わった</h2>
+        </div>
+        <strong id="beginner-result-answer" class="beginner-result-badge">答え—</strong>
+      </div>
+      <p class="beginner-result-lead">正解として指定された答えの「選ばれやすさ」を、同じ問題で比べます。</p>
+      <div class="beginner-before-after" aria-label="学習前後の正解確率">
+        <div>
+          <span>直す前</span>
+          <div class="beginner-meter"><i id="beginner-result-before-bar"></i></div>
+          <strong id="beginner-result-before">—</strong>
+        </div>
+        <div>
+          <span>直した後</span>
+          <div class="beginner-meter after"><i id="beginner-result-after-bar"></i></div>
+          <strong id="beginner-result-after">—</strong>
+        </div>
+      </div>
+      <p id="beginner-result-change" class="beginner-result-change">—</p>
+      <p>AIは答えを最初から知っていたのではありません。間違いとの差を使って、内部の数字を少し直しました。</p>
+      <aside class="name-after-experience">
+        <strong>名前を知る</strong>
+        <span>内部で変えた線の強さを「重み（Weight）」と呼びます。</span>
+      </aside>
+      <div class="next-question">
+        <div>
+          <span>次はどうなる？</span>
+          <strong>同じ問題でもう一度直すと、選ばれやすさはどう変わる？</strong>
+        </div>
+        <div class="beginner-result-actions">
+          <button id="beginner-repeat-learning" type="button" class="primary">もう1回直して比べる</button>
+          <button id="beginner-result-detail" type="button">どの数字を変えたか見る</button>
+        </div>
+      </div>
     </section>
 
     <details class="curriculum-guide">
