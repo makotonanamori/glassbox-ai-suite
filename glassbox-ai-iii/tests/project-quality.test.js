@@ -24,6 +24,7 @@ test('Glassbox AI IIIのcanonical UIは強化学習だけを通常表示する',
   assert.match(html, /id="rl-beginner-result"/);
   assert.match(html, /id="rl-beginner-continue"/);
   assert.match(html, /この場面で、どの行動を選びやすいか/);
+  assert.match(html, /方策を画面で見る/);
 });
 
 test('初回ガイドは既存の実計算操作へ案内する', async () => {
@@ -40,6 +41,9 @@ test('初回ガイドは既存の実計算操作へ案内する', async () => {
   assert.match(app, /function showBeginnerDetail\(\)/);
   assert.match(app, /function renderRlBeginnerResult\(\)/);
   assert.match(app, /completePolicyReference/);
+  assert.match(app, /RL_GLOSSARY/);
+  assert.match(app, /data-term-target/);
+  assert.match(app, /networkSnapshotForDisplay/);
 });
 
 test('ブラウザ成果物に外部script・外部stylesheet依存がない', async () => {

@@ -87,7 +87,7 @@ function appendNode(svg, position, options) {
   svg.append(group);
 }
 
-export function renderNetwork(svg, snapshot, formatNumber, onInspect) {
+export function renderNetwork(svg, snapshot, formatNumber, onInspect, outputNames = OUTPUT_NAMES) {
   svg.replaceChildren();
   const { network, forward, active } = snapshot;
 
@@ -170,7 +170,7 @@ export function renderNetwork(svg, snapshot, formatNumber, onInspect) {
     appendNode(svg, POSITIONS.output[output], {
       layer: 'output',
       index: output,
-      label: `${OUTPUT_NAMES[output]} / O${output + 1}`,
+      label: `${outputNames[output]} / O${output + 1}`,
       primary: logit === null ? 'logit = —' : `logit = ${formatNumber(logit)}`,
       secondary: probability === null ? 'p = —' : `p = ${formatNumber(probability * 100)}%`,
       value: probability,

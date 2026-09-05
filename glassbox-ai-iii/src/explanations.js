@@ -19,16 +19,47 @@ export const EXPLANATIONS = Object.freeze({
   learning: '一回の学習では、順伝播、損失、逆伝播、更新を一組として実行します。',
 });
 
-export const GLOSSARY = Object.freeze([
-  ['重み', '接続ごとの影響の向きと強さを表す数値。'],
-  ['バイアス', '入力の積の合計へ加える、ノード固有の調整値。'],
-  ['重み付き和', '入力×重みをすべて合計し、バイアスを加えた値。'],
-  ['活性化関数', '重み付き和を別の形へ変換する関数。本版の中間層はtanh。'],
-  ['logit', 'softmax前の出力得点。確率ではない。'],
-  ['softmax', '複数のlogitを合計1の確率へ変換する関数。'],
-  ['損失関数', '予測と正解のずれを一つの数値へまとめる関数。'],
-  ['勾配', 'パラメータを増やしたとき、損失がどちらへどれだけ変わるか。'],
-  ['誤差逆伝播', '出力の誤差を微分の連鎖で前の層へ伝える計算。'],
-  ['学習率', '勾配に沿って一回に動かす量を決める係数。'],
-  ['エポック', '用意した学習データ全体を一巡する単位。本版は単一サンプルを一回ずつ学習するため、学習回数を主表示する。'],
+export const RL_GLOSSARY = Object.freeze([
+  {
+    key: 'observation', term: '観測（Observation）', level: 1,
+    definition: 'AIが行動を決める前に、いまの周囲を数値として受け取ること。',
+    location: '盤面と「観測」ステップ', stage: 'rl-observation',
+    focus: '#rl-grid-board', highlights: ['#rl-grid-board', '[data-rl-axis="observe"]'],
+  },
+  {
+    key: 'policy', term: '方策（Policy）', level: 1,
+    definition: 'いまの場面で、それぞれの行動をどれくらい選びやすいかを表すもの。',
+    location: '3本の行動バー', stage: 'rl-policy',
+    focus: '#rl-policy-bars .rl-policy-row', highlights: ['#rl-policy-bars', '[data-rl-axis="policy"]'],
+  },
+  {
+    key: 'reward', term: '報酬（Reward）', level: 1,
+    definition: '実際に行動した直後の結果を、良かった・悪かったの数値で表したもの。',
+    location: '行動履歴の報酬列', stage: 'rl-transition',
+    focus: '#rl-experience-body tr.active td:nth-child(7)', highlights: ['#rl-experience-body tr.active', '#rl-experience-body tr.active td:nth-child(7)', '[data-rl-axis="transition"]'],
+  },
+  {
+    key: 'sampling', term: 'サンプリング（Sampling）', level: 2,
+    definition: '選びやすさの割合を使い、実際に試す行動を1つ選ぶこと。',
+    location: '「行動を選ぶ」ステップ', stage: 'rl-sample',
+    focus: '#rl-policy-bars .rl-policy-row.selected', highlights: ['#rl-policy-bars', '[data-rl-axis="sample"]'],
+  },
+  {
+    key: 'return', term: 'リターン（Return）', level: 2,
+    definition: 'その時点より後でもらった報酬を、近い結果ほど重くしてまとめた値。',
+    location: '行動履歴のリターン列', stage: 'rl-return',
+    focus: '#rl-experience-body tr.active td:last-child', highlights: ['#rl-experience-body tr.active', '#rl-experience-body tr.active td:last-child', '[data-rl-axis="return"]'],
+  },
+  {
+    key: 'policy-gradient', term: '方策勾配（Policy Gradient）', level: 3,
+    definition: '得られた結果を使って、行動の選びやすさをどちらへ直すか計算した値。',
+    location: '「直し方を計算」ステップ', stage: 'rl-gradient',
+    focus: '#rl-formula', highlights: ['#rl-formula', '[data-rl-axis="gradient"]'],
+  },
+  {
+    key: 'learning-rate', term: '学習率（Learning Rate）', level: 3,
+    definition: '内部の数字を1回でどれくらい大きく直すかを決める値。',
+    location: '39個の更新表', stage: 'rl-update',
+    focus: '#rl-parameter-body tr.active', highlights: ['#rl-parameter-body tr.active', '[data-rl-axis="update"]'],
+  },
 ]);

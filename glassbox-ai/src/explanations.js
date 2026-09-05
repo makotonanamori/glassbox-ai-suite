@@ -20,15 +20,16 @@ export const EXPLANATIONS = Object.freeze({
 });
 
 export const GLOSSARY = Object.freeze([
-  ['重み', '接続ごとの影響の向きと強さを表す数値。'],
-  ['バイアス', '入力の積の合計へ加える、ノード固有の調整値。'],
-  ['重み付き和', '入力×重みをすべて合計し、バイアスを加えた値。'],
-  ['活性化関数', '重み付き和を別の形へ変換する関数。本版の中間層はtanh。'],
-  ['logit', 'softmax前の出力得点。確率ではない。'],
-  ['softmax', '複数のlogitを合計1の確率へ変換する関数。'],
-  ['損失関数', '予測と正解のずれを一つの数値へまとめる関数。'],
-  ['勾配', 'パラメータを増やしたとき、損失がどちらへどれだけ変わるか。'],
-  ['誤差逆伝播', '出力の誤差を微分の連鎖で前の層へ伝える計算。'],
-  ['学習率', '勾配に沿って一回に動かす量を決める係数。'],
-  ['エポック', '用意した学習データ全体を一巡する単位。本版は単一サンプルを一回ずつ学習するため、学習回数を主表示する。'],
+  { key: 'input', term: '入力', level: 1, definition: 'AIへ最初に渡す数字。この実験では5個あります。', location: '左の入力操作と、図のI1〜I5です。', stage: 'input', focus: '#network-svg [data-node="input-0"]', highlights: ['#network-svg [data-node^="input-"]'] },
+  { key: 'node', term: 'ノード（Node）', level: 1, definition: '入ってきた数字を計算し、次へ渡す場所です。', location: '丸で描かれたI、H、Oです。', stage: 'hidden-sum', focus: '#network-svg .network-node.active', highlights: ['#network-svg .network-node.active'] },
+  { key: 'weight', term: '重み（Weight）', level: 1, definition: '数字を次へどのくらい強く伝えるかを決める値です。', location: 'ノードを結ぶ線と、同じ名前のParameter行です。', stage: 'update-weight', requiresLearning: true, focus: '#network-svg .network-connection.active', highlights: ['#network-svg .network-connection.active', '#parameter-body tr.active', '#formula-display'] },
+  { key: 'weighted-sum', term: '重み付き和', level: 2, definition: '入力と線の強さを掛けた結果を集め、調整値を足した数字です。', location: 'Hノードのzと計算式です。', stage: 'hidden-sum', focus: '#network-svg .network-node.active', highlights: ['#network-svg .network-node.active', '#formula-display'] },
+  { key: 'bias', term: 'バイアス（Bias）', level: 2, definition: '集めた数字へ最後に足す、ノードごとの調整値です。', location: '計算式とParameter表のbから始まる行です。', stage: 'update-bias', requiresLearning: true, focus: '#parameter-body tr.active', highlights: ['#parameter-body tr.active', '#formula-display'] },
+  { key: 'activation', term: '活性化関数', level: 2, definition: '集めた数字を、次へ渡しやすい範囲へ変える計算です。', location: 'Hノードのaとtanhの計算式です。', stage: 'tanh', focus: '#network-svg .network-node.active', highlights: ['#network-svg .network-node.active', '#formula-display'] },
+  { key: 'logit', term: 'logit', level: 2, definition: 'どの答えを選びそうかを表す、確率へ変える前の得点です。', location: 'Oノードのlogitです。', stage: 'logit', focus: '#network-svg .network-node.active', highlights: ['#network-svg .network-node.active', '#formula-display'] },
+  { key: 'softmax', term: 'softmax／確率', level: 2, definition: '複数の得点を、合計100%の選ばれやすさへ変える計算です。', location: 'Oノードのpと右側の出力summaryです。', stage: 'softmax', focus: '#network-svg .network-node.active', highlights: ['#network-svg .network-node.active', '#output-summary', '#formula-display'] },
+  { key: 'loss', term: '損失（Loss）', level: 2, definition: '予測が正解からどのくらい外れたかを、一つにまとめた数字です。', location: '学習timelineの「ずれを測る」段階と計算式です。', stage: 'loss', requiresLearning: true, focus: '#formula-display', highlights: ['#formula-display', '#step-title'] },
+  { key: 'gradient', term: '勾配（Gradient）', level: 3, definition: '内部の数字をどちらへ動かすと、失敗が減るかを示す値です。', location: '強調された線、Parameter行、計算式です。', stage: 'gradient-ho', requiresLearning: true, focus: '#network-svg .network-connection.active', highlights: ['#network-svg .network-connection.active', '#parameter-body tr.active', '#formula-display'] },
+  { key: 'backpropagation', term: '誤差逆伝播', level: 3, definition: '答え側で分かった失敗を、前の計算へ順番に戻す方法です。', location: '出力の誤差からHノードへ戻るtimelineです。', stage: 'output-error', requiresLearning: true, focus: '#network-svg .network-node.active', highlights: ['#network-svg .network-node.active', '#formula-display'] },
+  { key: 'learning-rate', term: '学習率（Learning Rate）', level: 3, definition: '1回で内部の数字をどのくらい大きく直すかを決める値です。', location: '実験条件の入力欄とParameter更新式です。', stage: 'update-weight', requiresLearning: true, focus: '#learning-rate', highlights: ['#learning-rate', '#formula-display'] },
 ]);

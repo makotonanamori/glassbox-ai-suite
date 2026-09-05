@@ -24,6 +24,7 @@ test('Glassbox AI Iのcanonical UIは教師あり学習だけを通常表示す�
   assert.match(html, /id="beginner-learning-result"/);
   assert.match(html, /id="beginner-repeat-learning"/);
   assert.match(html, /線の強さを「重み（Weight）」/);
+  assert.match(html, /id="beginner-result-detail"[^>]*>重みを画面で見る/);
 });
 
 test('初回ガイドは既存の実計算操作へ案内する', async () => {
@@ -41,6 +42,8 @@ test('初回ガイドは既存の実計算操作へ案内する', async () => {
   assert.match(app, /BEGINNER_ANSWER_NAMES/);
   assert.match(app, /function renderBeginnerLearningResult\(step\)/);
   assert.match(app, /同じ問題をもう一度予測しています/);
+  assert.match(app, /data-term-target/);
+  assert.match(app, /showGlossaryTerm\('weight'\)/);
 });
 
 test('ブラウザ成果物に外部script・外部stylesheet依存がない', async () => {

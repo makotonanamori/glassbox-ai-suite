@@ -366,3 +366,261 @@ Phase 1のAuditと承認済み具体案に基づき、初心者向け完了面�
 
 - 所要時間を選択材料から外し、I / II / IIIを技術名ではなく`予測はどう上手になる？`、`文章はどう続く？`、`良い・悪い結果から行動はどう変わる？`という問いで選べるようにした。
 - model構造と専門用語は各cardのdetailsへ分離し、初心者が読まなくても実験を開始できる。
+
+## 2026-08-27 — Beginner Terminology Bridge Phase 1 Audit
+
+### 監査目的
+
+第三者初心者test 2で確認された「動きは分かる。一度説明されれば分かる。しかし専門用語が分からない」という課題を受け、現行I / II / IIIの専門用語が、画面上の実物、DOM、実Traceまたはmodel stateへどこまで接続しているかを監査した。
+
+今回の評価単位は用語の定義文だけではない。次が一続きになっているかを確認した。
+
+```text
+用語
+↓
+初心者が既に観察した現象
+↓
+画面上の実物
+↓
+識別可能なDOM
+↓
+実際の値を供給するTrace / model state
+↓
+同じ箇所をもう一度観察する操作
+```
+
+UI、DOM、URL、Trace、数学処理は変更していない。
+
+### 実施範囲
+
+- I / II / IIIの`index.html`、描画code、step engine、Trace構築、Auto Runを静的確認
+- 各appの初期表示、Auto Run中、完了後、詳細表示への復帰を実browserで確認
+- 用語説明から対象へ直接移動するlink、button、`data-term`等の有無を確認
+- 現在対象を示すclass、data属性、DOM IDと実値sourceを照合
+- Console warning / errorを確認
+
+実browserでは、三appともConsole warning / errorは0件だった。
+
+### シリーズ共通結果
+
+| 評価項目 | 現状 | 判定 |
+|---|---|---|
+| 現象を先に見せる入口 | I / II / IIIすべてに存在する | 良好 |
+| 現象後の正式名称 | IはWeight、IIはToken、IIIはPolicyを導入する | 部分達成 |
+| 用語の短い説明 | 各appに静的な用語補足がある | 部分達成 |
+| 用語から該当実物への直接移動 | 三appとも該当link / button / `data-term`は0件 | 未達 |
+| 対象DOMの識別 | Iのnode / connection / Parameter、IIのstage / Token / Attention cell / Parameter、IIIの因果rail / 経験行 / Parameterは識別可能 | 良好な基盤あり |
+| 実値source | Iは完全snapshot、IIはclone保存Forward Trace、IIIはRL step snapshotとcloneした比較入力 | 良好 |
+| 用語を知った後の同一箇所再観察 | 詳細先頭へ戻る導線はあるが、導入した用語の対象へは直接着地しない | 未達 |
+| URL / focusによる直接表示 | `path`は粗い入口切替だけで、用語・stage・対象を指定できない | 未達 |
+
+三appとも「説明に使える実値とDOM」は既に多く存在する。主な欠損は新しい計算や可視化ではなく、用語と既存対象を結ぶmetadata、直接移動、focus、highlightの接着層である。
+
+### Glassbox AI I — 表示用語と実物・DOM・Trace
+
+#### 対応表
+
+| 用語 | 現在の実物 | DOM / 描画経路 | 実値source | 現状評価 |
+|---|---|---|---|---|
+| 入力 | 5本のslider、入力node I1〜I5 | `#input-controls`、`#network-svg [data-node="input-N"]` | `StepEngine.current.forward.inputs` | 対応済み |
+| node | SVG上のI / H / O円 | `[data-node="input-N|hidden-N|output-N"]` | current snapshotの`forward` | 実物は明確だが用語補足なし |
+| 重み / Weight | node間の線、太さ、符号、正確な値 | `.network-connection[data-parameter]`、`#connection-inspector`、`#parameter-{name}` | snapshotの`network`と`PARAMETER_SPECS` | 最も強い対応基盤あり |
+| Bias | Parameter表のBias行、計算式 | `#parameter-b_H*` / `#parameter-b_O*`、`#formula-display` | `network.biasH / biasO`とsnapshotの`parameterInfo` | network図上の実物はない |
+| 重み付き和 | H nodeの`z`と段階式 | `[data-node="hidden-N"]`、`#formula-display` | `forward.hiddenPreActivations` | stage中は対応する |
+| Activation / tanh | H nodeの`a`と段階式 | `[data-node="hidden-N"]`、`#natural-explanation` | `forward.hiddenActivations` | stage中は対応する |
+| logit | O nodeの`logit` | `[data-node="output-N"]` | `forward.logits` | 常時実値を確認可能 |
+| softmax / Probability | O nodeの`p`と出力summary | `[data-node="output-N"]`、`#output-summary` | `forward.probabilities` | 実物は明確 |
+| Loss / 誤差 | Loss stageの式と学習前後比較 | `#step-title`、`#formula-display`、`#comparison` | `training.loss / comparison` | 実値はあるが用語から直接行けない |
+| Gradient | 現在の接続、Parameter行、式 | `.network-connection.active`、`#parameter-{name}.active`、`#formula-display` | `training.parameterInfo[name].gradient` | stage中の対応は非常に強い |
+| Backpropagation | 出力側からH側へ戻る一連のstage | `#step-title`、active node / connection | 139 step snapshotの`active`とtraining値 | 単一の対象ではなく区間指定が必要 |
+| Learning Rate | 設定inputと更新式 | `#learning-rate`、`#formula-display` | input値と`parameterInfo.learningRate` | 実物はあるが現象前から正式語で表示 |
+| Parameter Update | 全39行のbefore / gradient / update / after | `#parameter-body` | snapshotの`parameterInfo` | 強い対応あり |
+| Epoch | 静的用語補足だけ | `#glossary dt/dd` | 対応する現行timeline stateなし | 現行体験との対応なし |
+
+#### 実browserで確認した状態
+
+- 自動観察中の`中間ノードH2への積 3/5`では、`w_I3_H2`の接続線、H2 node、`parameter-w_I3_H2`行が同時にactiveになった。
+- 同じ時点で実値を代入した`x3 × w_I3_H2`と、「重みは接続ごとの影響の向きと強さ」という自然言語説明が表示された。
+- 完了後はWeightという名称を導入し、同じ入力の正解確率`33.4614% → 38.1488%`を表示した。
+- `どの数字を変えたか見る`を押すとtimeline先頭の`計算開始前`へ戻り、focusは`#step-next`へ移る。Weight接続、更新stage、Parameter行へ直接着地せず、active connection / Parameterは0件だった。
+
+#### 良い部分
+
+- `active.connection`、`active.node`、`active.parameter`が一つのsnapshotにあり、数式、SVG、Parameter表を同じ実計算stageへ同期できている。
+- Weight、Gradient、Updateは新しい可視化を作らなくても、既存DOMを対象指定するだけで用語から直接示せる。
+- 接続線はkeyboard focus可能で、`data-parameter`と正確な値を持つ。
+
+#### 欠損
+
+- 静的用語補足の`dt / dd`には対象stage、DOM selector、初心者向け一言、再観察操作のmetadataがない。
+- Weight導入後のbuttonは「詳細の先頭」へ戻るだけで、直前に名付けた線を示さない。
+- BiasはParameter表と式には存在するが、network図上で「nodeへ最後に足す数字」として指せる実物がない。
+- `Epoch`は現行単一sample体験の実物やTrace位置と対応せず、今回の「実装している現象だけを用語化する」方針に合わない。
+
+### Glassbox AI II — 表示用語と実物・DOM・Trace
+
+#### 対応表
+
+| 用語 | 現在の実物 | DOM / 描画経路 | 実値source | 現状評価 |
+|---|---|---|---|---|
+| Token | 文中の分割単位、Token cell、ID / POS | `#beginner-sentence .beginner-token`、`#token-cells [data-token-index]` | `trace.tokens`とTokenizer | 初心者面と詳細面の両方に実物あり |
+| Probability Distribution | 候補barと百分率 | `#beginner-candidates .candidate-row`、`#prediction-view` | `trace.logits`から`generationDistribution()`で算出 | 強い対応あり |
+| Selection / Sampling | 選択orb、候補row、説明 | `#beginner-selected-token`、`.candidate-row.selected` | `selectGenerationToken()`の実選択 | 現象は明確、正式名称の橋渡しはない |
+| Temperature | 設定inputとSampling時の分布 | `#temperature` | `generationDistribution(logits, temperature)` | 実値対応はあるが比較導線なし |
+| Embedding | 8次元vector | pipeline stage 2〜4、`#stage-view` | `trace.tokenEmbeddings / positionEmbeddings / initialRepresentation` | Trace対応済み |
+| Attention | matrix、選択cell、Q / K / weight分解 | `[data-attention-row][data-attention-col]`、`#attention-inspector` | `trace.heads[*]` | 最も強い詳細対応 |
+| Causal Mask | Matrixの`MASK` cell | `#attention-matrix td.mask` | `trace.heads[*].maskedScores` | 実物と実値が一致 |
+| Residual / MLP / LayerNorm | stage vectorと全体図node | `#stage-view`、`#architecture-view .architecture-node` | 対応するTrace tensor | stage対応あり |
+| Logits / Softmax | stage 15 / 16のvector、候補確率 | `#pipeline .pipeline-step`、`#stage-view`、`#prediction-view` | `trace.logits / probabilities` | 実値対応済み |
+| Loss | 位置別表、履歴graph、前後比較 | `#training-sample`、`#loss-chart`、`#training-comparison` | Trainerのbefore / after Traceとloss history | 実値対応済み |
+| Gradient / SGD | Training flow、Parameter Inspector | `[data-training-phase]`、`#parameter-table [data-parameter]`、`#parameter-inspector` | autograd gradientと`trainer.lastUpdate` | 実値対応済み |
+
+#### 実browserで確認した状態
+
+- Auto Run中の候補表示では、実Traceの最終logitから作られた`dog 10.69%`、`<UNK> 8.53%`等がbarと数値で表示された。
+- 同時に16 stage pipelineは`Probabilities`、全体図は`Softmax → Next Token`をcurrent表示した。
+- 最初の選択後にToken名称が表示され、5回完了後も生成文、候補、実値sourceの注記を確認できた。
+- `1ステップずつ詳しく見る`は同じ生成Traceを保持したまま`Tokenizer`へ戻り、`<BOS> → 0`等の実Token IDを表示した。
+
+#### 良い部分
+
+- 16 stageのkeyとclone保存Traceのfieldがほぼ一対一で、用語から正確なstageへ移動する基盤がある。
+- Token cell、Attention cell、Parameter rowは個別のdata属性を持ち、対象を細かく指定できる。
+- 初心者面の候補確率と詳細面のProbability stageが同じforward結果へ接続している。
+- Tokenは現象後に名前を導入し、詳細復帰時にTokenizerとToken cellへ着地するため、三app中で用語と再観察の接続が最も進んでいる。
+
+#### 欠損
+
+- 用語補足はArchitecture tab内の静的listで、各stage、Attention tab、Parameter tabへ移動できない。
+- 詳細導線は常にTokenizerへ戻るため、Token以外の用語を学んだ後に該当stageへ直接行けない。
+- pipeline、tab、見出し、設定の多くが英語専門語のままで、AI名称以外を知らない利用者には「いま何が起きているか」より名称が先に見える。
+- `Temperature`と`Sampling`は実装されているが用語補足に含まれず、値を変えると候補分布と選択がどう変わるかを同じ入力で比較する橋がない。
+- Architectureのcurrent強調は一部の代表keyだけで、Token Embedding、Position Embedding、Raw Score、Mask、Attention Weight等の全16 stageとは完全一致しない。
+
+### Glassbox AI III — 表示用語と実物・DOM・Trace
+
+#### 対応表
+
+| 用語 | 現在の実物 | DOM / 描画経路 | 実値source | 現状評価 |
+|---|---|---|---|---|
+| 観測 / 入力 | Grid Worldと5 sensor値 | `#rl-grid-board`、observation stageの`#rl-formula` | RL stepの`details.inputs / sensed` | 実値対応済み |
+| Policy / 方策 | 3行動の確率bar、学習前後比較 | `#rl-policy-bars .rl-policy-row`、`#rl-beginner-policy-comparison` | `details.policy`、clone入力による`reference.before / after` | 初心者面の中心として良好 |
+| Reward / 報酬 | 移動結果、単発値、累積値 | active経験行、`#rl-formula`、`#rl-cumulative-reward` | `experience.reward / cumulativeReward` | 因果が見える |
+| Exploration / Exploitation | 選択区間、経験行、count | `#rl-formula`、`#rl-experience-body tr.active` | `samplePolicy()`とseed乱数 | 実値対応済み |
+| Episode | 1回のworld履歴と履歴graph | `#rl-episode-number`、`#rl-history-chart` | `ReinforcementStepEngine.summary` | 実物はあるが初回から正式語が多い |
+| Discounted Return | 逆向き計算と経験表G列 | `data-rl-axis="return"`、`#rl-formula`、経験表 | `step.returns` | 実値対応済み |
+| Policy Gradient | Loss、output delta、平均勾配 | `data-rl-axis="gradient"`、`#rl-formula`、RL Parameter表 | `details.gradient / aggregateGradient` | 実値対応済み |
+| REINFORCE | Returnから方策勾配、39更新までの区間 | 因果rail 5〜8、step title / formula | RL timeline全体 | 単一のDOM対象はなく区間指定が必要 |
+| Parameter Update | active Parameter行とbefore / gradient / update / after | `#rl-parameter-{name}.active` | `step.parameterInfo`とstep network snapshot | 表では強く対応 |
+| Weight | network接続線とRL Parameter行 | `.network-connection[data-parameter]`、`#rl-parameter-{name}` | network state | RL stage中のnetwork線activeとは未接続 |
+
+#### 実browserで確認した状態
+
+- Auto Run中の`rl-transition`では因果railの`遷移・報酬`と経験表の1行がactiveになり、環境event、単発報酬、累積報酬を同じstepから表示した。
+- 同じ時点で3行動の実方策確率をbar表示した。
+- 10回完了後は同じclone入力に対する方策を`前進 36.0% → 38.0%`等で比較し、その現象をPolicyと名付けた。
+- `1回分を止めながら見る`はepisode先頭の`rl-ready`へ戻る。Policy barは空になり、Policy stageや比較対象へ直接着地しない。
+
+#### 良い部分
+
+- `stage`と`data-rl-axis`が観測、方策、抽選、遷移・報酬、Return、Gradient、Update、比較へ対応している。
+- `active.experienceIndex`により、説明、式、世界、経験表を同じ時刻へ合わせられる。
+- beginner比較は異なる場面を比較せず、保存済みの同じ入力を更新前後networkへ渡した実Probabilityである。
+- Reward、餌取得、衝突、危険を別々に表示し、報酬増加を能力向上と断定しない。
+
+#### 欠損
+
+- canonicalなIIIの用語補足がIと同じ教師あり用語listである。Policy、Reward、Episode、Exploration、Return、REINFORCEがなく、代わりにLoss Function、Backpropagation、Epoch等が並ぶ。
+- 初心者向けにPolicyを導入した直後の詳細buttonが、Policyの実物ではなく確率未表示の`rl-ready`へ戻る。
+- RL timelineの`active`は経験行とParameter行には接続するが、network SVGのnode / connection強調へ接続しない。`rl-update`も`active.parameter`だけで、同名の接続線をactiveにしない。
+- 因果railと設定欄に、方策確率、探索／活用、割引Return、方策Gradient、REINFORCE、温度、学習率が一度に現れる。現象後の段階開示になっていない。
+- `rl-phase`は初心者向け名称ではなく`rl-transition`等の内部stage keyをそのまま表示する。
+
+### 優先度
+
+#### Critical
+
+1. **三appとも、用語説明から該当実物へ直接戻る導線がない。** `Glassbox AIで見る`に相当するlink / button / term metadataは0件であり、採用済みの`現象 → 名前 → 実物と対応 → もう一度触る`loopが閉じていない。
+2. **Glassbox AI IIIの用語補足がcanonicalな強化学習内容と一致していない。** Policy、Reward、Return、REINFORCE等を説明せず、教師あり学習用のLoss、Backpropagation、Epochを表示するため、初心者が現在の実物と用語を対応できない。
+
+#### High
+
+1. **IのWeight導入後とIIIのPolicy導入後が、名付けた対象ではなくtimeline先頭へ戻る。** 直前の理解を再観察で確かめられない。
+2. **IIIのRL stageとnetwork図のactive状態が接続していない。** RL Parameter行は強調できるが、同じWeightの線や関連nodeを同時に示せない。
+3. **IIはTrace対応が強い一方、Token以外の用語から16 stage、Attention cell、Parameterへ直接移動できない。** 静的用語補足と実物が分離している。
+4. **詳細領域では用語名が自然言語より先に大量表示される。** 特にIIの英語pipeline / tab、IIIの設定と因果railは、対象利用者が用語を知らない前提と衝突する。
+
+#### Medium
+
+1. IのBiasは実値と式があるが、network図上で指せる表示対象がない。
+2. IのEpochは現行単一sample体験に対応する実物がない。
+3. IIのTemperature / Samplingは実装済みだが用語補足と同一入力比較がない。
+4. IIのArchitecture current表示は16 stageすべてと一対一ではない。
+5. 三appとも用語、初心者向け説明、stage、selector、focus先を一元管理するmetadataがなく、文言と対象の対応が複数fileへ分散している。
+
+#### Low
+
+1. `node / Node`、`Probability / 確率`、`Parameter / パラメータ`等の英日表記が画面間で揺れている。
+2. DOM IDは十分に存在するが、SVG node groupなど一部の観察対象はfocus対象ではない。
+
+### Phase 2へ渡す最小変更候補
+
+全面的な用語page新設より先に、既存DOMとTraceを使う小さな接着層を優先する。
+
+1. appごとに、主要用語の`term id / 短い説明 / stage / selector / focus先 / 詳細説明`を持つ小さなmetadataを定義する。
+2. 現行の用語補足をbuttonまたはlink化し、`Glassbox AIで見る`で既存timelineを該当stageへ移動し、既存active classまたは専用の一時highlightを付ける。
+3. Iは最初にWeightを対象とし、実際の更新済みsnapshot内の一接続、同名Parameter行、更新式を同時に示す。Epochは主要導線から外す候補とする。
+4. IIはToken、Probability、Attentionを最初の三用語とし、それぞれTokenizer / Probabilities / Attention Weights stageへ接続する。現在の`ForwardStepEngine.index`とclone保存Traceをそのまま使う。
+5. IIIは用語補足をcanonical RL用語へ同期し、Policy、Reward、Returnを最初の三用語とする。Policyは`rl-policy`、Rewardは`rl-transition`、Returnは`rl-return`の実stepへ接続する。
+6. IIIの`rl-update`では`active.parameter`からWeightなら対応するnetwork connection、Biasなら対応nodeを導けるようにする。ただし表示sourceは既存RL step snapshotのままとする。
+7. URL queryを追加する場合も、`term=weight`だけでdummy表示を作らず、通常操作で生成した同じTrace / timeline位置を再現してからfocusする。
+
+これらは監査結果に基づく具体案であり、まだUI実装の決定ではない。Phase 2では、既存の用語補足を文脈内panelとして拡張する案を第一候補とし、独立pageやrouting追加が本当に必要かを比較してから提示する。
+
+## 2026-08-27 — Priority A 実装結果
+
+Phase 1 AuditのCritical / Highから、既存Traceを壊さず用語と実物を結ぶ変更を実装した。
+
+- シリーズ共通：用語カードをLevel 1〜3に分け、短い説明、画面上の場所、「Glassbox AIで見る」を同じ文脈に配置した。
+- I：Weightを含む主要用語から既存`StepEngine` snapshotへ移動し、数式、SVG接続、同名Parameter行を同時に強調する。現行Traceに実物がないEpochは主要用語から外した。
+- II：Token、Probability、Attention等をclone保存済みForward Traceの該当stageへ接続した。未実行時に実値のないLoss / Gradientは空表示へ移動させず、「学習を1回試した後」と示す。
+- III：教師あり用語集をRL専用のObservation、Policy、Reward、Sampling、Return、Policy Gradient、Learning Rateへ置き換えた。内部stage keyは初心者向けの動詞句で表示する。
+- III：ネットワーク図と出力確率を、教師あり側のcurrent snapshotではなく表示中のRL step snapshotへ同期した。`rl-update`では同じParameterの表行とWeight接続またはBias nodeを同時にactive表示する。
+- 数学処理：損失、確率、勾配、更新量、方策、報酬の算出式や値は変更していない。直接移動APIは既存の保存済みstep indexを選ぶだけで、説明専用のdummy値を作らない。
+
+### 検証
+
+- root `npm run check`: portal 11、I 44、II 24、III 48、合計127 test pass。
+- 実browser：IのWeightは`w_I1_H1`更新stage、実更新式、active接続、active Parameter行へ着地した。
+- 実browser：IIのToken / Probability / AttentionはTokenizer / Probabilities / Attention Softmaxへ着地し、保存済み候補確率とAttention matrixを表示した。
+- 実browser：IIIのPolicy / Reward / Return / Learning Rateは対応するRL stageへ着地し、実方策、単発報酬、割引Return、更新式を表示した。Weight更新時はRL network接続とRL Parameter行が同時にactiveになった。
+- 390×844で三appともdocument横overflowは0。Console warning / errorは0件。
+
+## 2026-09-05 — 観察と用語を往復する導線
+
+既存の「体験 → 観察 → 因果関係の理解 → 名前 → 詳細」を維持し、次を追加した。
+
+- 三appに、初回体験・現在の計算・用語へ移動する短いnavigationを追加。用語を調べた後は、元のsnapshot位置と操作元のfocusへ戻れる。自動再生は勝手に再開しない。新しい実験へ切り替えた場合は古い復帰を適用しない。
+- I / IIIでは現在の段階の用語を同じ計算欄で開ける。次の対象は、実timelineの次のstepから表示する。
+- Iの通常画面は答えA / B / Cに統一。入力は5個の数字、正解は人が指定することを説明する。保存JSONの名前、出力index、計算値、legacy実装は変えない。
+- IIの全16段階に、専門用語の知識を前提としない観察文と次の操作を追加。Loss / Gradientは未学習なら学習操作へ、学習済みなら実際の結果へ案内する。
+- IIのParameter cellはマウスhoverだけに頼らず、クリック・Enterで更新前、制限前の勾配、実際の変更量、更新後を表示する。保存されたupdateを使い、未学習の変更量を捏造しない。後から学習率を変えても過去の更新式は変わらない。
+- IIの再初期化 / JSON読込時は、古い学習比較と用語復帰を残さない。文章生成中に用語を調べた場合は、戻る操作で生成途中の文も復帰する。
+- IIIのReward / Returnは、360px幅でも横長の行全体ではなく実際の数値cellへfocusする。
+- 各appの最後に、今回の学習信号、解釈上の限界、次の実験への問いを追加。series linkはapp単独起動でも使える公開URLとした。外部script / API依存はない。
+
+### 評価の範囲
+
+この変更の検証対象は、実際に動く導線、実数値との一致、復帰、表示、keyboard操作である。初心者本人の理解度・学習効果を保証するものではない。第三者testでは説明せずに触ってもらい、(1)何を変えたか、(2)どの数字が変わったか、(3)その名前は何か、(4)次にどこを試すか、を本人の言葉と画面上の指示で確認する。全機能の暗記や一度での完全理解を要求しない。
+
+### 2026-09-05 検証結果
+
+- `npm run check`: Portal 11、I 44、II 25、III 48、合計128/128成功。I/IIIのcoverageコマンドも成功（計測対象の行coverageはI 92.75%、III 92.57%。UI全操作のcoverageを意味しない）。
+- 実browserでIの12用語、IIの7用語、IIIの7用語について、対象focus/強調と元の場面への復帰を確認。IIの用語buttonはEnter往復後も元の用語へfocusが戻る。
+- Iの1回学習：同じ問題の答えA確率33.4614% → 38.1488%。IIIの10回：同じ開始場面で前進36.0% → 38.0%、左折32.6% → 31.3%、右折31.3% → 30.7%。成功を演出せず、実結果を表示。
+- IIの生成：`the cat eats the dog cats milk the`。500回学習後の固定問いは`the cat eats fish.`。fish確率7.59% → 19.81%、Corpus平均Loss3.3856 → 1.2615。生成と500回学習の一時停止・再開を確認。
+- IIは16段階すべての観察文と次操作を確認。生成途中のToken参照から戻ると、生成文・停止状態・元buttonのfocusが復帰する。Attentionはfocus先cellとInspectorの行/列が一致する。
+- IIの実更新表示：embeddings.token[0]は更新前-0.1665、制限前勾配0.3214、実変更量-0.0040、更新後-0.1705。未学習の誘導、学習後のLoss/Gradient、再初期化後に古い比較が残らないことを確認。
+- 360×800で三appのdocument横overflowは0。IIIはReturn実数値cellが画面内に入り、IIは更新式全体と復帰buttonを目視確認。I/IIIの隣の用語へのTab移動とoutlineも確認。
+- Console warning/errorは検証tabで0件。初期の旧キャッシュ参照を検出し、最新ソースをno-storeの専用ローカルserverで再検証した。
+- 第三者初心者本人の理解度、全Parameter/全matrix cellを含む全Tab経路、全支援技術の組合せは未評価。既存画像/GIFは以前の撮影時点のままであり、今回の画面差分の証拠とはしない。

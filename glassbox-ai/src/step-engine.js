@@ -725,6 +725,13 @@ export class StepEngine {
     return this.current;
   }
 
+  goToStage(stage) {
+    const index = this.steps.findIndex((step) => step.stage === stage);
+    if (index < 0) return null;
+    this.index = index;
+    return this.current;
+  }
+
   getUndoNetwork() {
     return this.preLearningNetwork ? cloneNetwork(this.preLearningNetwork) : null;
   }

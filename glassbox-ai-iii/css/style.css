@@ -1873,6 +1873,55 @@ tbody tr.inspected:not(.active) {
   overflow: auto;
 }
 
+.term-card {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border: 1px solid rgba(42, 61, 73, 0.7);
+  border-radius: 8px;
+  background: rgba(12, 22, 29, 0.52);
+}
+
+.term-card h3,
+.term-card p {
+  margin: 0;
+}
+
+.term-card h3 {
+  color: var(--cyan);
+  font-size: 15px;
+}
+
+.term-card p,
+.term-card small {
+  color: var(--muted);
+}
+
+.term-card button {
+  justify-self: start;
+}
+
+.term-level {
+  width: fit-content;
+  padding: 2px 6px;
+  border: 1px solid rgba(219, 187, 92, 0.45);
+  border-radius: 999px;
+  color: var(--yellow);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.term-highlight {
+  outline: 3px solid var(--yellow) !important;
+  outline-offset: 4px;
+}
+
+.network-connection.term-highlight {
+  stroke: var(--yellow) !important;
+  stroke-opacity: 1 !important;
+}
+
 .glossary dl {
   margin: 0;
 }
@@ -2130,3 +2179,20 @@ footer {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Observation guidance uses the same calculated timeline as the experiment. */
+.observation-guide { margin-top: 1rem; padding: .85rem; border: 1px solid #427f85; border-radius: 8px; background: #102127; line-height: 1.7; overflow-wrap: anywhere; }
+.observation-guide p { margin: .5rem 0; }
+.observation-guide details { margin-top: .5rem; }
+.observation-guide summary { cursor: pointer; color: #a6eeea; }
+.term-visit { position: sticky; bottom: 0; z-index: 10; display: flex; align-items: center; gap: 1rem; padding: .7rem 1rem; border: 2px solid #72d9d0; background: #102127; box-shadow: 0 -3px 18px #0008; }
+.term-visit[hidden] { display: none; }
+.term-visit p { margin: 0; flex: 1; font-size: .9rem; line-height: 1.5; overflow-wrap: anywhere; }
+.term-visit button { flex-shrink: 0; }
+.series-continuation { margin: 1rem; padding: 1rem; border: 1px solid #427f85; border-radius: 8px; line-height: 1.7; }
+.series-continuation p { max-width: 80ch; }
+.series-continuation a, .observation-nav a { display: inline-block; margin: .35rem 1rem .35rem 0; color: #a6eeea; text-decoration: underline; text-underline-offset: .2em; }
+.observation-nav { margin: 0 1.25rem; padding: .6rem 0; line-height: 1.6; }
+.observation-nav a:focus-visible, .series-continuation a:focus-visible, .observation-guide summary:focus-visible { outline: 3px solid #ffe099; outline-offset: 4px; }
+@media (max-width: 600px) { .term-visit { flex-direction: column; align-items: stretch; gap: .4rem; } .term-visit p { font-size: .8rem; } .term-visit button { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

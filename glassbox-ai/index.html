@@ -27,6 +27,7 @@
         <span>外部API・学習済みモデル・MLライブラリ不使用</span>
       </details>
     </header>
+    <nav class="observation-nav" aria-label="観察したい場所へ"><a href="#quick-start-heading">最初の体験へ</a><a href="#step-heading">今の計算を詳しく</a><a href="#glossary-heading">現象の名前を調べる</a></nav>
 
     <section class="status-strip" aria-label="現在の実験状態">
       <div><span>フェーズ</span><strong id="phase-value">準備</strong></div>
@@ -111,7 +112,7 @@
         </div>
         <div class="beginner-result-actions">
           <button id="beginner-repeat-learning" type="button" class="primary">もう1回直して比べる</button>
-          <button id="beginner-result-detail" type="button">どの数字を変えたか見る</button>
+          <button id="beginner-result-detail" type="button">重みを画面で見る</button>
         </div>
       </div>
     </section>
@@ -527,6 +528,11 @@
         <aside class="explanation-box">
           <span class="box-label">いま何が起きているか</span>
           <p id="natural-explanation"></p>
+          <div id="observation-guide" class="observation-guide">
+            <strong>いま見ている現象の名前（押すと説明）</strong>
+            <div data-current-terms></div>
+            <p data-next-observation></p>
+          </div>
         </aside>
       </section>
 
@@ -541,7 +547,8 @@
 
         <fieldset>
           <legend>この入力の正解クラス</legend>
-          <div id="target-controls" class="target-controls"></div>
+        <div id="target-controls" class="target-controls"></div>
+        <p class="microcopy">ここは数字と答えの関係を観察する小さな例です。入力は5個の数値、答えはA・B・Cの3種類。何を正解にするかは人が指定します。同じ入力でも正解を変えれば、直す方向が変わります。</p>
         </fieldset>
         <button id="start-learning" type="button" class="primary full-button" disabled>順伝播後に学習を開始</button>
         <p class="microcopy">学習もone-hot、損失、各勾配、各更新、再順伝播へ分解して進みます。</p>
@@ -610,9 +617,9 @@
         <div class="panel-heading">
           <div>
             <p class="panel-index">08</p>
-            <h2 id="glossary-heading">用語の短い補足</h2>
+            <h2 id="glossary-heading">見た現象の名前を知る</h2>
           </div>
-          <span class="panel-kicker">観察用語集</span>
+          <span class="panel-kicker">説明 → 実物へ戻る</span>
         </div>
         <div id="glossary" class="glossary"></div>
       </section>
@@ -633,6 +640,13 @@
       </section>
     </main>
 
+    <aside id="term-visit" class="term-visit" aria-label="用語の実物を観察中" hidden><p></p><button id="term-return" type="button">用語を見る前の場面へ戻る</button></aside>
+    <nav class="series-continuation" aria-label="次の実験">
+      <strong>この実験で確かめたこと</strong>
+      <p>人が指定した正解と予測のずれを使って、内部の数字を変えました。1つの問題の改善だけでは、初めての問題にも正解できるとは限りません。</p>
+      <a href="https://makotonanamori.github.io/glassbox-ai-suite/glassbox-ai-ii/?path=auto">次の問い：文章では何を正解にする？ → IIで試す</a>
+      <a href="https://makotonanamori.github.io/glassbox-ai-suite/">三つの実験の入口へ</a>
+    </nav>
     <footer>
       <p>Glassbox AI I — 固定5→4→3ネットワークの教師あり学習を139ステップで追跡する透明な観察装置です。</p>
     </footer>

@@ -43,3 +43,15 @@ test('教師あり再生速度は数学結果と独立した正の待機時間�
   assert.equal(supervisedPlaybackDelay(4), 120);
   assert.throws(() => supervisedPlaybackDelay(0), /0より大きい/);
 });
+
+test('用語導線は既存snapshotの該当stageへ直接移動する', () => {
+  const engine = new StepEngine(createNetwork('term-navigation'), [0.8, 0, 0, 0, 0]);
+  assert.equal(engine.goToStage('softmax')?.stage, 'softmax');
+  engine.last();
+  engine.appendLearning(0, 0.1);
+  const weight = engine.goToStage('update-weight');
+  assert.equal(weight.stage, 'update-weight');
+  assert.ok(weight.active.connection);
+  assert.ok(weight.active.parameter);
+  assert.equal(engine.goToStage('not-a-stage'), null);
+});

@@ -14,13 +14,23 @@ import { relativeError, stats } from "../utils/math.js";
 import { exportApplicationState, importApplicationState } from "../utils/serialization.js";
 import {
   attentionCellDetails, escapeHtml, formatter, renderLossChart, renderMatrix,
-  renderParameterInspector, renderParameterTable, renderPrediction,
+  renderParameterInspector, renderParameterCellDetails, renderParameterTable, renderPrediction,
   renderTensorRows, renderTokenTrace, renderVector,
 } from "../visualization/renderers.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const firstRunRequest = new URLSearchParams(window.location.search).get("path");
+
+const LANGUAGE_TERMS = Object.freeze([
+  { key: "token", term: "Token（トークン）", level: 1, description: "文章を作るときに、1回ずつ扱うまとまりです。単語だけでなく記号の場合もあります。", location: "文章中の色分けされたまとまりと、Token cellです。", stage: "tokenizer", tab: "playground", focus: "#token-cells [data-token-index]", highlights: ["#token-cells [data-token-index]"] },
+  { key: "probability", term: "確率分布（Probability Distribution）", level: 1, description: "次に来そうな候補それぞれの、選ばれやすさを並べたものです。", location: "候補の棒と百分率、Prediction panelです。", stage: "probabilities", tab: "playground", focus: "#prediction-view", highlights: ["#prediction-view", "#pipeline .pipeline-step.current"] },
+  { key: "attention", term: "Attention", level: 2, description: "今のTokenを計算するとき、前のどのTokenをどの割合で使うかを示します。", location: "Attention Matrixの行、列、選択cellです。", stage: "attentionWeights", tab: "attention", focus: "#attention-matrix [data-attention-row=\"0\"][data-attention-col=\"0\"]", highlights: ["#attention-matrix", "#pipeline .pipeline-step.current"] },
+  { key: "embedding", term: "Embedding", level: 2, description: "Tokenと位置を、計算に使える数字の並びへ変えたものです。", location: "Forward pipelineのToken Embeddingです。", stage: "tokenEmbeddings", tab: "playground", focus: "#stage-view", highlights: ["#stage-view", "#pipeline .pipeline-step.current"] },
+  { key: "logit", term: "Logit", level: 2, description: "各候補の、確率へ変える前の生の得点です。", location: "Forward pipelineのVocabulary Logitsです。", stage: "logits", tab: "playground", focus: "#stage-view", highlights: ["#stage-view", "#pipeline .pipeline-step.current"] },
+  { key: "loss", term: "Loss（損失）", level: 2, description: "予測が実際の次Tokenからどのくらい外れたかをまとめた数字です。", location: "学習を1回試した後、Lossと学習tabの位置別表に現れます。", requiresTraining: true, tab: "training", focus: "#training-sample", highlights: ["#training-sample", "#training-comparison"] },
+  { key: "gradient", term: "Gradient（勾配）", level: 3, description: "内部の数字をどちらへ動かすと、外れ方が減るかを示す値です。", location: "学習を1回試した後、Parameter tabのGradient Inspectorに現れます。", requiresTraining: true, tab: "parameters", focus: "#parameter-cell-detail", highlights: ["#parameter-cell-detail"] },
+]);
 
 let dataset;
 let tokenizer;
@@ -45,6 +55,7 @@ let lastGenerationTrace = null;
 let lastGenerationPrompt = null;
 let learningObserverRun = null;
 let learningObserverToken = 0;
+let termBookmark = null;
 
 function precision() { return Number($("#precision").value); }
 function fmt(value) { return formatter(precision())(value); }
@@ -541,6 +552,99 @@ function showBeginnerDetail() {
   focusFirstRunTarget();
 }
 
+function clearTermHighlights() {
+  document.querySelectorAll(".term-highlight").forEach((element) => element.classList.remove("term-highlight"));
+}
+
+function focusLanguageTerm(item) {
+  clearTermHighlights();
+  for (const selector of item.highlights ?? []) {
+    $$(selector).forEach((element) => element.classList.add("term-highlight"));
+  }
+  const target = item.key === "attention"
+    ? $(`#attention-matrix [data-attention-row="${selectedAttention.row}"][data-attention-col="${selectedAttention.col}"]`)
+    : $(item.focus);
+  if (!target) return;
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.focus({ preventScroll: true });
+}
+
+function showLanguageTerm(termKey) {
+  const item = LANGUAGE_TERMS.find((candidate) => candidate.key === termKey);
+  if (!item) return;
+  if (!termBookmark) termBookmark = { trace: currentTrace, index: engine.index, model, step: trainer.step, tab: $(".tab.active")?.dataset.tab ?? "playground", focus: document.activeElement, term: document.activeElement?.dataset.termTarget, selectedToken, attention: { ...selectedAttention }, head: $("#attention-head").value, attentionMode: $("#attention-mode").value, playback: experiencePlaybackRun, mode: firstRunMode, state: experienceState };
+  cancelLanguagePlayback();
+  cancelLearningObserver();
+  autoTraining = false;
+  if (item.requiresTraining && (!lastTrainingResult || !trainer.lastUpdate)) {
+    firstRunMode = "training";
+    experienceState = "detail";
+    experienceMessage = '実際の学習結果を確かめます。まず「Train One Step」で1回学習してください。';
+    $("#term-visit").hidden = true;
+    clearTermHighlights();
+    selectTab("training");
+    renderFirstRunGuide();
+    setNotice("まず「Train One Step」で1回学習してください。実際のLossと勾配ができたら、用語からその値へ進めます。");
+    $("#train-one").focus();
+    $("#train-one").scrollIntoView({ behavior: "smooth", block: "center" });
+    termBookmark = null;
+    return;
+  }
+  if (!currentTrace) prepareForward();
+  if (item.key === "attention") {
+    $("#attention-mode").value = "attentionWeights";
+    selectedAttention = { row: currentTrace.tokens.length - 1, col: 0 };
+  }
+  if (item.stage) engine.goToStage(item.stage);
+  termBookmark.visitIndex = engine.index;
+  firstRunMode = "forward";
+  experienceState = "detail";
+  experienceMessage = `「${item.term}」を使っている実際の場所を表示しました。強調された実物と数字を見比べてください。`;
+  selectTab(item.tab);
+  renderForward();
+  renderAttention();
+  renderTraining();
+  renderParameters();
+  renderFirstRunGuide();
+  const visit = $("#term-visit");
+  visit.hidden = false;
+  visit.querySelector("p").textContent = `${item.term}：保存済みの計算結果を表示中。${item.description}`;
+  window.requestAnimationFrame(() => focusLanguageTerm(item));
+}
+
+function returnFromTerm() {
+  const saved = termBookmark;
+  if (!saved || saved.model !== model || saved.step !== trainer.step || (saved.trace && saved.trace !== currentTrace)) {
+    termBookmark = null;
+    $("#term-visit").hidden = true;
+    clearTermHighlights();
+    setNotice("計算条件または学習状態が変わったため、古い場面には戻しません。現在の結果から観察を続けられます。");
+    return;
+  }
+  cancelLanguagePlayback();
+  currentTrace = saved.trace;
+  engine.load(currentTrace);
+  engine.index = saved.index;
+  selectedToken = saved.selectedToken;
+  selectedAttention = saved.attention;
+  $("#attention-head").value = saved.head;
+  $("#attention-mode").value = saved.attentionMode;
+  experiencePlaybackRun = saved.playback;
+  if (experiencePlaybackRun && !experiencePlaybackRun.complete) experiencePlaybackRun.paused = true;
+  firstRunMode = saved.mode;
+  experienceState = saved.state;
+  experienceMessage = '用語を見る前の場面へ戻りました。途中の再生は「続ける」で再開できます。';
+  termBookmark = null;
+  $("#term-visit").hidden = true;
+  clearTermHighlights();
+  renderForward(); renderAttention();
+  selectTab(saved.tab);
+  setNotice("用語を見る前の保存済みの場面へ戻りました。自動再生は停止しています。");
+  const focus = saved.term ? $(`[data-term-target="${saved.term}"]`) : saved.focus;
+  if (focus?.isConnected && focus.getClientRects().length) focus.focus();
+}
+
 function initialize(seed = 42) {
   cancelLanguagePlayback();
   cancelLearningObserver({ discard: true });
@@ -558,6 +662,11 @@ function initialize(seed = 42) {
   selectedAttention = { row: 0, col: 0 };
   selectedParameter = "embeddings.token";
   lastTrainingResult = null;
+  trainingPlaybackSession = null;
+  trainingPlaybackPhase = "";
+  termBookmark = null;
+  $("#term-visit").hidden = true;
+  clearTermHighlights();
   generationCounter = 0;
   lastGenerationTrace = null;
   lastGenerationPrompt = null;
@@ -683,9 +792,18 @@ mlp = hidden × W2 + b2</pre></div>`;
 function renderForward() {
   if (!currentTrace) return;
   const stage = engine.current();
+  if (termBookmark?.visitIndex !== undefined && termBookmark.visitIndex !== engine.index) {
+    clearTermHighlights();
+    $("#term-visit p").textContent = '用語から続きの計算を観察中です。戻るボタンで、用語を見る前の場面へ戻れます。';
+  }
   $("#stage-title").textContent = stage.label;
   $("#stage-counter").textContent = `${stage.index + 1} / ${FORWARD_STAGES.length}`;
   $("#stage-description").textContent = stage.description;
+  $("#stage-observation").textContent = stage.observation;
+  const next = FORWARD_STAGES[engine.index + 1];
+  $("#next-observation").textContent = next
+    ? `次に確かめること：${next.observation.split('。')[0].replace(/ました$/, 'ます')}。「Next」で進めます。`
+    : '次は「Generate One」で候補から1つ選び、文章へ足します。文章が伸びると次の候補も計算し直します。生成だけでは重みは学習されません。';
   renderPipeline();
   renderTokens();
   $("#stage-view").classList.remove("empty");
@@ -723,7 +841,13 @@ function topPrediction(trace) {
 
 function renderTrainingResult() {
   const result = lastTrainingResult ?? trainingPlaybackSession;
-  if (!result) return;
+  if (!result) {
+    $("#training-sample").textContent = "学習を実行すると、入力・教師・位置別Lossを表示します。";
+    $("#training-sample").classList.add("empty");
+    $("#training-comparison").textContent = "Train One Step後に同一サンプルの変化を表示します。";
+    $("#training-comparison").classList.add("empty");
+    return;
+  }
   const tokens = tokenizer.decode(result.sample.inputIds);
   const targets = tokenizer.decode(result.sample.targetIds);
   const predictions = result.beforeTrace.probabilities;
@@ -763,6 +887,7 @@ function renderTraining() {
     item.classList.toggle("done", phaseIndex >= 0 && index < phaseIndex);
   });
   renderTrainingResult();
+  renderGlossary();
   renderFirstRunGuide();
 }
 
@@ -791,23 +916,15 @@ function renderArchitecture() {
 }
 
 function renderGlossary() {
-  const terms = {
-    Token: "文字列をモデルが扱う最小単位へ分けたもの。この実装では単語と句読点。",
-    Embedding: "離散的なToken IDや位置を、学習可能な8次元実数ベクトルへ写像する表。",
-    LayerNorm: "Tokenごとに次元方向の平均と分散を整え、学習可能なγ・βを適用する。",
-    Query: "現在のTokenが何を探すかを表すベクトル。",
-    Key: "参照候補Tokenがどの特徴を持つかを表すベクトル。",
-    Value: "Attention weightで実際に混合される情報ベクトル。",
-    Attention: "QとKの類似度から、過去TokenのVをどの割合で混ぜるか決める計算。",
-    "Causal Mask": "未来Tokenを参照できないよう、j > iのscoreをsoftmax対象外にする。",
-    Residual: "変換前のベクトルを変換結果へ足し、元の情報経路を残す接続。",
-    GELU: "MLP内の非線形活性化関数。本実装はtanh近似を使う。",
-    Logit: "Vocabulary各Tokenに対するsoftmax前の制約なしscore。",
-    Loss: "正解Tokenへ割り当てた確率の低さを−logで測る値。",
-    Gradient: "Parameterを微小に増やしたときLossがどちらへどれだけ変わるか。",
-    SGD: "Parameterからlearning rate×gradientを引く単純な更新法。",
-  };
-  $("#glossary").innerHTML = Object.entries(terms).map(([term, description]) => `<div><dl><dt>${escapeHtml(term)}</dt><dd>${escapeHtml(description)}</dd></dl></div>`).join("");
+  $("#glossary").innerHTML = LANGUAGE_TERMS.map((item) => `<article class="term-card" data-term="${item.key}">
+    <span class="term-level">Level ${item.level}</span>
+    <h3>${escapeHtml(item.term)}</h3>
+    <p>${escapeHtml(item.description)}</p>
+    <small>${escapeHtml(item.location)}</small>
+    ${item.requiresTraining && (!lastTrainingResult || !trainer.lastUpdate)
+      ? `<button type="button" data-term-target="${item.key}">1回学習する場所へ</button>`
+      : `<button type="button" data-term-target="${item.key}">Glassbox AIで見る</button>`}
+  </article>`).join("");
 }
 
 function renderGradientOptions() {
@@ -974,6 +1091,9 @@ async function importState(file) {
     $("#learning-rate").value = trainer.learningRate;
     $("#clip-norm").value = trainer.clipNorm;
     engine = new ForwardStepEngine(); currentTrace = null; lastTrainingResult = null;
+    trainingPlaybackSession = null; trainingPlaybackPhase = ""; termBookmark = null;
+    $("#term-visit").hidden = true;
+    clearTermHighlights();
     renderStatic(); prepareForward();
     $("#io-status").textContent = `${file.name} を検証し、STEP ${trainer.step}を復元しました。`;
     setNotice("JSON状態を安全に復元しました。");
@@ -981,10 +1101,23 @@ async function importState(file) {
 }
 
 function bindEvents() {
+  $("#term-return").addEventListener("click", returnFromTerm);
+  $("#open-glossary").addEventListener("click", () => {
+    selectTab("architecture");
+    const glossary = $("#glossary");
+    glossary.tabIndex = -1;
+    glossary.focus();
+    glossary.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   $$(".tab").forEach((button) => button.addEventListener("click", () => selectTab(button.dataset.tab)));
   $("#guide-forward").addEventListener("click", runBeginnerAutoObserve);
   $("#guide-training").addEventListener("click", showBeginnerDetail);
   $("#detail-from-bridge").addEventListener("click", showBeginnerDetail);
+  $("#token-bridge-view").addEventListener("click", () => showLanguageTerm("token"));
+  $("#glossary").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-term-target]");
+    if (button) showLanguageTerm(button.dataset.termTarget);
+  });
   $("#experience-pause").addEventListener("click", pauseLanguagePlayback);
   $("#learning-start").addEventListener("click", runLearningObserver);
   $("#learning-pause").addEventListener("click", pauseLearningObserver);
@@ -1020,7 +1153,16 @@ function bindEvents() {
   $("#auto-train").addEventListener("click", () => { autoTraining = true; runTraining(Infinity); });
   $("#pause-train").addEventListener("click", () => { autoTraining = false; });
   $("#parameter-table").addEventListener("click", (event) => { const row = event.target.closest("[data-parameter]"); if (!row) return; selectedParameter = row.dataset.parameter; renderParameters(); });
-  $("#parameter-inspector").addEventListener("click", (event) => { const cell = event.target.closest("[data-param-index]"); if (!cell) return; $("#gradient-parameter").value = selectedParameter; updateGradientIndexLimit(); $("#gradient-index").value = cell.dataset.paramIndex; setNotice(`${selectedParameter}[${cell.dataset.paramIndex}]をDebug Gradient Check対象に設定しました。`); });
+  $("#parameter-inspector").addEventListener("click", (event) => {
+    const cell = event.target.closest("[data-param-index]");
+    if (!cell) return;
+    const index = Number(cell.dataset.paramIndex);
+    $("#parameter-cell-detail").innerHTML = renderParameterCellDetails(selectedParameter, model.parameterMap.get(selectedParameter), trainer.lastUpdate?.[selectedParameter], index, precision());
+    $("#gradient-parameter").value = selectedParameter;
+    updateGradientIndexLimit();
+    $("#gradient-index").value = index;
+    setNotice(`${selectedParameter}[${index}]の直し方を表示しました。Debugの勾配チェック対象も同じ数字です。`);
+  });
   $("#gradient-parameter").addEventListener("change", updateGradientIndexLimit);
   $("#run-gradient-check").addEventListener("click", runGradientCheck);
   $("#capture-snapshot").addEventListener("click", () => { trainer.captureSnapshot(`STEP ${trainer.step} · ${new Date().toLocaleTimeString("ja-JP")}`); renderSnapshots(); setNotice("現在ParameterをSnapshotへ複製しました。"); });
