@@ -8,7 +8,7 @@ import {
 } from './neural-network.js';
 import { StepEngine } from './step-engine.js';
 import { getGradientValue } from './backpropagation.js';
-import { EXPLANATIONS, GLOSSARY } from './explanations.js';
+import { EXPLANATIONS, RL_GLOSSARY } from './explanations.js';
 import { parseStateJson, serializeState } from './serializer.js';
 import { OperationLog, downloadTextFile } from './state-manager.js';
 import { renderNetwork } from './visualization.js';
@@ -309,15 +309,105 @@ function syncTargetControls() {
 }
 
 function createGlossary() {
-  const list = document.createElement('dl');
-  for (const [term, definition] of GLOSSARY) {
-    const dt = document.createElement('dt');
-    const dd = document.createElement('dd');
-    dt.textContent = term;
-    dd.textContent = definition;
-    list.append(dt, dd);
+  const fragment = document.createDocumentFragment();
+  for (const item of RL_GLOSSARY) {
+    const article = document.createElement('article');
+    article.className = 'term-card';
+    article.dataset.term = item.key;
+    article.innerHTML = `
+      <span class="term-level">Level ${item.level}</span>
+      <h3>${item.term}</h3>
+      <p>${item.definition}</p>
+      <small>画面では：${item.location}</small>
+      <button type="button" data-term-target="${item.key}">Glassbox AIで見る</button>
+    `;
+    fragment.append(article);
   }
-  elements.glossary.replaceChildren(list);
+  elements.glossary.replaceChildren(fragment);
+}
+
+function clearTermHighlights() {
+  document.querySelectorAll('.term-highlight').forEach((node) => node.classList.remove('term-highlight'));
+}
+
+let termBookmark = null;
+
+function renderObservationGuide(step) {
+  const guide = document.getElementById('observation-guide');
+  const item = RL_GLOSSARY.find((term) => term.stage === step?.stage);
+  const terms = guide.querySelector('[data-current-terms]');
+  terms.replaceChildren();
+  if (item) {
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = item.term;
+    const text = document.createElement('p');
+    text.textContent = `${item.definition} 画面では：${item.location}。`;
+    details.append(summary, text);
+    terms.append(details);
+  }
+  guide.querySelector('[data-next-observation]').textContent = rlEngine?.canGoNext
+    ? `次に確かめること：${rlEngine.steps[rlEngine.index + 1].title}。「次のRLステップ」でこの続きへ進みます。`
+    : step
+      ? '同じ場面での行動の選ばれやすさを比較します。結果が毎回良くなるとは限りません。次の試行でも確かめられます。'
+      : '「自動で見る」で行動と結果を観察できます。ここではその計算を止めながら確かめます。';
+  if (termBookmark && termBookmark.engine !== rlEngine) {
+    termBookmark = null;
+    document.getElementById('term-visit').hidden = true;
+    clearTermHighlights();
+  } else if (termBookmark?.visitIndex !== undefined && termBookmark.visitIndex !== rlEngine.index) {
+    clearTermHighlights();
+    document.querySelector('#term-visit p').textContent = '用語から続きの計算を観察中です。戻るボタンで、用語を見る前の場面へ戻れます。';
+  }
+}
+
+function returnFromTerm() {
+  if (!termBookmark || termBookmark.engine !== rlEngine) return;
+  const saved = termBookmark;
+  termBookmark = null;
+  pauseAuto();
+  cancelContinuousRlRun();
+  rlEngine.index = saved.index;
+  experienceState = saved.state === 'running' ? 'detail' : saved.state;
+  experienceMessage = '用語を見る前の保存済みの場面へ戻りました。自動再生は停止しています。';
+  document.getElementById('term-visit').hidden = true;
+  clearTermHighlights();
+  render();
+  if (saved.focus?.isConnected && saved.focus.getClientRects().length) saved.focus.focus();
+}
+
+function focusRlTerm(item) {
+  clearTermHighlights();
+  for (const selector of item.highlights) {
+    document.querySelectorAll(selector).forEach((node) => node.classList.add('term-highlight'));
+  }
+  const target = document.querySelector(item.focus);
+  if (!target) return;
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.focus({ preventScroll: true });
+}
+
+function showRlTerm(termKey) {
+  const item = RL_GLOSSARY.find((candidate) => candidate.key === termKey);
+  if (!item) return false;
+  const origin = { engine: rlEngine, index: rlEngine?.index ?? 0, state: experienceState, focus: document.activeElement };
+  pauseAuto();
+  cancelContinuousRlRun({ logMessage: '[用語] 実物を確認するため連続表示を停止' });
+  quickStartMode = 'reinforcement';
+  if (!rlEngine && !startRlEpisode({ confirmDiscard: false })) return false;
+  if (!termBookmark) termBookmark = { ...origin, engine: rlEngine };
+  if (!rlEngine.goToStage(item.stage)) return false;
+  termBookmark.visitIndex = rlEngine.index;
+  experienceState = 'detail';
+  experienceMessage = `「${item.term}」が表れている実際の計算ステップを表示しました。`;
+  addLog(`[用語] ${item.term}の実物へ移動：${rlEngine.current.title}`);
+  render();
+  const visit = document.getElementById('term-visit');
+  visit.hidden = false;
+  visit.querySelector('p').textContent = `${item.term}：保存済みの計算場面を表示中。${item.definition}`;
+  window.requestAnimationFrame(() => focusRlTerm(item));
+  return true;
 }
 
 function createParameterRows() {
@@ -374,7 +464,10 @@ function renderFormula(step) {
 }
 
 function inspectParameter(spec) {
-  const value = getParameterValue(engine.current.network, spec);
+  const displayedNetwork = quickStartMode === 'reinforcement' && rlEngine
+    ? rlEngine.current.network
+    : engine.current.network;
+  const value = getParameterValue(displayedNetwork, spec);
   const sign = value > 0 ? '正（同方向）' : value < 0 ? '負（反対方向）' : 'ゼロ';
   elements['connection-inspector'].innerHTML = `
     <strong>${spec.name}</strong>
@@ -383,7 +476,11 @@ function inspectParameter(spec) {
     <span>${sign} / |w| = ${formatNumber(Math.abs(value))}</span>
   `;
   document.querySelectorAll('#parameter-body tr.inspected').forEach((row) => row.classList.remove('inspected'));
+  document.querySelectorAll('#rl-parameter-body tr.inspected').forEach((row) => row.classList.remove('inspected'));
   document.getElementById(`parameter-${spec.name}`)?.classList.add('inspected');
+  if (quickStartMode === 'reinforcement') {
+    document.getElementById(`rl-parameter-${spec.name}`)?.classList.add('inspected');
+  }
 }
 
 function renderOutputSummary(step) {
@@ -707,6 +804,19 @@ const RL_STAGE_GROUPS = Object.freeze({
   'rl-comparison': 'compare',
 });
 
+const RL_STAGE_LABELS = Object.freeze({
+  'rl-ready': '準備',
+  'rl-observation': '周囲を見る',
+  'rl-policy': '選びやすさを比べる',
+  'rl-sample': '行動を選ぶ',
+  'rl-transition': '行動して結果を見る',
+  'rl-return': '結果を前の行動へ戻す',
+  'rl-gradient': '直し方を計算する',
+  'rl-aggregate': '直し方をまとめる',
+  'rl-update': '内部の数字を直す',
+  'rl-comparison': '前後を比べる',
+});
+
 function renderRlAxis(step) {
   const activeGroup = RL_STAGE_GROUPS[step?.stage] ?? null;
   document.querySelectorAll('[data-rl-axis]').forEach((item) => {
@@ -894,6 +1004,7 @@ function renderRlBeginnerResult() {
 
 function renderRlPanel() {
   const step = rlEngine?.current ?? null;
+  renderObservationGuide(step);
   const profile = getRewardProfile(elements['rl-reward-profile'].value || RL_DEFAULTS.rewardProfile);
   elements['rl-profile-description'].textContent = `${profile.description} 報酬: 餌${profile.rewards.food >= 0 ? '+' : ''}${profile.rewards.food} / 危険${profile.rewards.danger >= 0 ? '+' : ''}${profile.rewards.danger} / 衝突${profile.rewards.collision >= 0 ? '+' : ''}${profile.rewards.collision} / 前進${profile.rewards.move >= 0 ? '+' : ''}${profile.rewards.move} / 旋回${profile.rewards.turn >= 0 ? '+' : ''}${profile.rewards.turn}`;
 
@@ -905,7 +1016,7 @@ function renderRlPanel() {
   elements['rl-foods'].textContent = String((step?.world ?? gridWorld).counters.foods - startingFoods);
   elements['rl-exploration'].textContent = String(step?.explorationCount ?? 0);
   elements['rl-exploitation'].textContent = String(step?.exploitationCount ?? 0);
-  elements['rl-phase'].textContent = step?.stage ?? '準備';
+  elements['rl-phase'].textContent = RL_STAGE_LABELS[step?.stage] ?? '準備';
   elements['rl-current-title'].textContent = step?.title ?? '強化学習はまだ始まっていません';
   elements['rl-current-description'].textContent = step?.description ?? '設定を確認し、「新しいエピソード」を押してください。';
   elements['rl-explanation'].textContent = step?.explanation ?? 'エピソード中はネットワークを固定し、終了後に報酬を方策勾配へ変換します。';
@@ -1152,8 +1263,48 @@ function moveQuickStartToCurrentAction() {
   if (target instanceof HTMLButtonElement) target.focus({ preventScroll: true });
 }
 
+function rlForwardForDisplay(step) {
+  if (step?.details?.forward) return step.details.forward;
+  if (step?.details?.gradient?.forward) return step.details.gradient.forward;
+  if (step?.details?.afterForward) return step.details.afterForward;
+  const activeTime = step?.details?.time ?? step?.active?.experienceIndex;
+  const activeExperience = Number.isInteger(activeTime)
+    ? rlEngine?.experiences.find((experience) => experience.time === activeTime)
+    : null;
+  return activeExperience?.forward ?? rlEngine?.experiences[0]?.forward ?? null;
+}
+
+function rlNetworkActiveState(step) {
+  const active = {};
+  if (Number.isInteger(step?.active?.actionIndex)) {
+    active.node = { layer: 'output', index: step.active.actionIndex };
+  }
+  const spec = step?.details?.spec;
+  if (step?.stage === 'rl-update' && spec) {
+    active.parameter = spec.name;
+    if (spec.layer === 'IH') active.connection = { layer: 'IH', from: spec.column, to: spec.row };
+    if (spec.layer === 'HO') active.connection = { layer: 'HO', from: spec.column, to: spec.row };
+    if (spec.layer === 'BH') active.node = { layer: 'hidden', index: spec.row };
+    if (spec.layer === 'BO') active.node = { layer: 'output', index: spec.row };
+  }
+  return active;
+}
+
+function networkSnapshotForDisplay(supervisedStep) {
+  if (quickStartMode !== 'reinforcement' || !rlEngine) return supervisedStep;
+  const rlStep = rlEngine.current;
+  const forward = rlForwardForDisplay(rlStep);
+  if (!forward) return supervisedStep;
+  return {
+    network: rlStep.network,
+    forward: { ...forward, inputsCommitted: true },
+    active: rlNetworkActiveState(rlStep),
+  };
+}
+
 function render() {
   const step = engine.current;
+  const displayStep = networkSnapshotForDisplay(step);
   elements['phase-value'].textContent = step.phase;
   elements['step-value'].textContent = `${engine.index} / ${engine.length - 1}`;
   elements['learning-count'].textContent = String(step.network.learningCount);
@@ -1166,8 +1317,8 @@ function render() {
 
   renderFormula(step);
   renderGridWorldPanel(step);
-  renderNetwork(elements['network-svg'], step, formatNumber, inspectParameter);
-  renderOutputSummary(step);
+  renderNetwork(elements['network-svg'], displayStep, formatNumber, inspectParameter);
+  renderOutputSummary(displayStep);
   renderParameters(step);
   renderComparison(step);
   renderRlPanel();
@@ -1384,8 +1535,13 @@ function bindEvents() {
   elements['quick-reinforcement'].addEventListener('click', runBeginnerAutoObserve);
   elements['quick-explore'].addEventListener('click', showBeginnerDetail);
   elements['rl-beginner-continue'].addEventListener('click', () => startContinuousRlEpisodes({ confirmDiscard: false }));
-  elements['rl-beginner-detail'].addEventListener('click', showBeginnerDetail);
+  elements['rl-beginner-detail'].addEventListener('click', () => showRlTerm('policy'));
   elements['experience-pause'].addEventListener('click', pauseContinuousRlRun);
+  elements.glossary.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-term-target]');
+    if (button) showRlTerm(button.dataset.termTarget);
+  });
+  document.getElementById('term-return').addEventListener('click', returnFromTerm);
 
   elements['apply-preset'].addEventListener('click', () => {
     const preset = PRESETS[elements['preset-select'].value];

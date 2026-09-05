@@ -35,6 +35,7 @@
       <span id="notice" role="status" aria-live="polite">初期モデルを観察できます。</span>
     </div>
   </header>
+    <nav class="observation-nav" aria-label="観察したい場所へ"><a href="#first-run-heading">最初の体験へ</a><a href="#learning-observer-heading">学習前後を比べる</a><a href="#detail-from-bridge">今の計算を詳しく</a><button id="open-glossary" type="button">現象の名前を調べる</button></nav>
 
   <section class="first-run-guide" aria-labelledby="first-run-heading" data-experience-entry data-experience-state="ready">
     <div>
@@ -85,6 +86,7 @@
     <aside id="token-name-bridge" class="name-after-experience" hidden>
       <strong>名前を知る</strong>
       <span>文章を作るときに1回ずつ選ぶ、このまとまりを「Token（トークン）」と呼びます。単語だけでなく、記号になることもあります。</span>
+      <button id="token-bridge-view" type="button">Tokenを画面で見る</button>
     </aside>
     <div class="context-window-card">
       <div><p class="visual-label">次の予測で見る範囲</p><div id="beginner-context" class="context-token-line">—</div></div>
@@ -199,6 +201,10 @@
           <section class="panel">
             <div class="section-heading"><div><p class="eyebrow">FORWARD PIPELINE</p><h2 id="stage-title">入力待ち</h2></div><span id="stage-counter" class="badge">0 / 16</span></div>
             <p id="stage-description" class="stage-description">入力を確定すると、実際のForward Traceを16段階で観察できます。</p>
+            <div class="observation-guide">
+              <strong>いま何が起きた？</strong><p id="stage-observation"></p>
+              <p id="next-observation"></p>
+            </div>
             <div id="pipeline" class="pipeline"></div>
           </section>
           <section class="panel">
@@ -281,7 +287,7 @@
         <div class="section-heading"><div><p class="eyebrow">ONE BLOCK / PRE-LAYERNORM</p><h2>Model Architecture</h2></div><span class="badge">Context 8 · d_model 8 · 2 heads</span></div>
         <div id="architecture-view" class="architecture-view"></div>
       </section>
-      <section class="panel"><h2>用語</h2><div id="glossary" class="glossary"></div></section>
+      <section class="panel"><h2>見た現象の名前を知る</h2><p class="microcopy">短い説明を読んだら、同じ実計算の場所へ戻って確かめられます。</p><div id="glossary" class="glossary"></div></section>
     </section>
 
     <section id="panel-debug" class="tab-panel">
@@ -309,6 +315,13 @@
     </section>
   </main>
 
+  <aside id="term-visit" class="term-visit" aria-label="用語の実物を観察中" hidden><p></p><button id="term-return" type="button">用語を見る前の場面へ戻る</button></aside>
+  <nav class="series-continuation" aria-label="次の実験">
+    <strong>文章を伸ばすことと、学習することの違い</strong>
+    <p>生成は今の数字で次の候補を選ぶ操作。学習は例文に実際に続いた語を正解にして数字を直す操作です。このモデルは同梱12例文と最大8個のまとまりを使います。知らない語は&lt;UNK&gt;、文の開始は&lt;BOS&gt;、終わりは&lt;EOS&gt;で表します。</p>
+    <a href="https://makotonanamori.github.io/glassbox-ai-suite/glassbox-ai-iii/?path=auto">次の問い：正解の語がないとき、行動をどう学ぶ？ → IIIで試す</a>
+    <a href="https://makotonanamori.github.io/glassbox-ai-suite/">三つの実験の入口へ</a>
+  </nav>
   <footer><span>Glassbox AI II / local-only educational instrument</span><span>No API · No pretrained model · No ML library</span></footer>
   <script type="module" src="./js/app.js"></script>
 </body>

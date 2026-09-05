@@ -6,6 +6,8 @@
 
 Glassbox AI IIのcanonicalな責務は次Token予測とTransformer内部Traceです。教師あり5→4→3ネットワークは[Glassbox AI I](../glassbox-ai/)、環境報酬から学ぶ強化学習は[Glassbox AI III](../glassbox-ai-iii/)が担当します。
 
+Architecture内の用語カードから「Glassbox AIで見る」を押すと、Token、次候補の確率、Attentionなどが現れているclone保存済みForward Traceへ直接移動します。LossとGradientは空の表示へ誘導せず、実学習を1回試した後に確認する概念として示します。
+
 ## 起動方法
 
 Windows PowerShellでこのフォルダへ移動し、専用launcherを実行します。
@@ -295,3 +297,5 @@ glassbox-ai-ii/
 3. **1ステップずつ詳しく見る**: 直前に観察したmodelとPromptのTraceをTokenizer `1 / 16`へ戻し、TokenからProbabilityまでを`Next`で確認します。Loss、Gradient、SGD UpdateはTraining tabで追跡できます。
 
 表面の生成と学習比較も通常のmodel、Trainer、Seed付き生成を使い、表示専用の候補や成功文は作りません。Forward表示は引き続きclone保存されたTraceだけを読みます。数学・学習・UI契約を含む自動テストは現在24件です。
+
+2026-09-05追記：全16段階の平易な観察文、用語から元の場面への復帰、Loss/Gradientの実学習結果への導線、Parameter cellのクリック/Enterによる更新式表示を追加。保存済みの実変更量を検証するテストを含め、現在25件です。

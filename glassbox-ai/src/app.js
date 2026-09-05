@@ -43,6 +43,7 @@ const PRESETS = Object.freeze({
 });
 
 const BEGINNER_ANSWER_NAMES = Object.freeze(['答えA', '答えB', '答えC']);
+const supervisedText = (text) => text.replace(/行動([ABC])/g, '答え$1');
 
 const quickStartRequest = new URLSearchParams(window.location.search).get('path');
 const requestedQuickStartModes = new Set(['supervised', 'reinforcement', 'explore']);
@@ -284,7 +285,7 @@ function createRlParameterRows() {
 
 function createTargetControls() {
   const fragment = document.createDocumentFragment();
-  OUTPUT_NAMES.forEach((name, index) => {
+  BEGINNER_ANSWER_NAMES.forEach((name, index) => {
     const label = document.createElement('label');
     label.className = 'target-option';
     label.innerHTML = `<input type="radio" name="target" value="${index}"${index === targetIndex ? ' checked' : ''}> 正解：${name}`;
@@ -309,15 +310,117 @@ function syncTargetControls() {
 }
 
 function createGlossary() {
-  const list = document.createElement('dl');
-  for (const [term, definition] of GLOSSARY) {
-    const dt = document.createElement('dt');
-    const dd = document.createElement('dd');
-    dt.textContent = term;
-    dd.textContent = definition;
-    list.append(dt, dd);
+  const fragment = document.createDocumentFragment();
+  for (const item of GLOSSARY) {
+    const card = document.createElement('article');
+    card.className = 'term-card';
+    card.dataset.term = item.key;
+    card.innerHTML = `
+      <span class="term-level">Level ${item.level}</span>
+      <h3>${item.term}</h3>
+      <p>${item.definition}</p>
+      <small>${item.location}</small>
+      <button type="button" data-term-target="${item.key}">Glassbox AIで見る</button>
+    `;
+    fragment.append(card);
   }
-  elements.glossary.replaceChildren(list);
+  elements.glossary.replaceChildren(fragment);
+}
+
+let termBookmark = null;
+
+function renderObservationGuide(step) {
+  const guide = document.getElementById('observation-guide');
+  const keys = {
+    input: ['input'], 'weighted-product': ['input', 'weight'],
+    'weighted-sum': ['weighted-sum', 'bias'], activation: ['activation'],
+    logit: ['logit'], softmax: ['softmax'], argmax: ['softmax'],
+    'one-hot': ['loss'], loss: ['loss'], 'output-error': ['backpropagation'],
+    gradient: ['gradient'], backpropagation: ['backpropagation'],
+    'activation-derivative': ['activation', 'gradient'], update: ['learning-rate', 'weight'],
+    recompute: ['weight', 'softmax'], comparison: ['loss', 'weight'],
+  }[step.explanationKey] ?? [];
+  guide.querySelector('[data-current-terms]').replaceChildren(...keys.map((key) => {
+    const item = GLOSSARY.find((term) => term.key === key);
+    const details = document.createElement('details');
+    const summary = document.createElement('summary');
+    summary.textContent = item.term;
+    const text = document.createElement('p');
+    text.textContent = `${item.definition} ${item.location}`;
+    details.append(summary, text);
+    return details;
+  }));
+  guide.querySelector('[data-next-observation]').textContent = engine.canGoNext
+    ? `次に確かめること：${supervisedText(engine.steps[engine.index + 1].title)}。「次のステップ」で、この続きの実計算を表示します。`
+    : engine.canStartLearning
+      ? '次に確かめること：正解を指定して「学習を開始」。予測とのずれから、内部の数字の直し方を計算します。'
+      : 'ここまでが1回の学習です。同じ入力で直す前と後を比べ、もう1回直すとどう変わるか試せます。';
+  if (termBookmark && termBookmark.engine !== engine) {
+    termBookmark = null;
+    document.getElementById('term-visit').hidden = true;
+    clearTermHighlights();
+  } else if (termBookmark?.visitIndex !== undefined && termBookmark.visitIndex !== engine.index) {
+    clearTermHighlights();
+    document.querySelector('#term-visit p').textContent = '用語から続きの計算を観察中です。戻るボタンで、用語を見る前の場面へ戻れます。';
+  }
+}
+
+function returnFromTerm() {
+  if (!termBookmark || termBookmark.engine !== engine) return;
+  const saved = termBookmark;
+  termBookmark = null;
+  pauseAuto();
+  cancelSupervisedPlayback();
+  engine.index = saved.index;
+  quickStartMode = saved.mode;
+  experienceState = saved.state === 'running' ? 'detail' : saved.state;
+  experienceMessage = '用語を見る前の保存済みの場面へ戻りました。自動再生は停止しています。';
+  document.getElementById('term-visit').hidden = true;
+  clearTermHighlights();
+  render();
+  if (saved.focus?.isConnected && saved.focus.getClientRects().length) saved.focus.focus();
+}
+
+function ensureLearningTimelineForTerm() {
+  if (engine.hasLearningTimeline) return;
+  engine.last();
+  if (engine.canStartLearning) engine.appendLearning(targetIndex, learningRate);
+}
+
+function clearTermHighlights() {
+  document.querySelectorAll('.term-highlight').forEach((element) => element.classList.remove('term-highlight'));
+}
+
+function focusTermTarget(item) {
+  clearTermHighlights();
+  for (const selector of item.highlights ?? []) {
+    document.querySelectorAll(selector).forEach((element) => element.classList.add('term-highlight'));
+  }
+  const target = document.querySelector(item.focus);
+  if (!target) return;
+  if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.focus({ preventScroll: true });
+}
+
+function showGlossaryTerm(termKey) {
+  const item = GLOSSARY.find((candidate) => candidate.key === termKey);
+  if (!item) return;
+  if (!termBookmark) termBookmark = { engine, index: engine.index, mode: quickStartMode, state: experienceState, focus: document.activeElement };
+  pauseAuto();
+  cancelSupervisedPlayback({ logMessage: `[用語] ${item.term}を実計算で確認` });
+  if (item.requiresLearning) ensureLearningTimelineForTerm();
+  const step = engine.goToStage(item.stage);
+  if (!step) return;
+  termBookmark.visitIndex = engine.index;
+  quickStartMode = 'explore';
+  experienceState = 'detail';
+  experienceMessage = `「${item.term}」を使っている実際の計算を表示しました。強調された場所と数式を見比べてください。`;
+  render();
+  const visit = document.getElementById('term-visit');
+  visit.hidden = false;
+  visit.querySelector('p').textContent = `${item.term}：保存済みの計算場面を表示中。${item.definition}`;
+  window.requestAnimationFrame(() => focusTermTarget(item));
 }
 
 function createParameterRows() {
@@ -391,13 +494,13 @@ function renderOutputSummary(step) {
   step.forward.probabilities.forEach((probability, index) => {
     const item = document.createElement('div');
     item.className = `output-chip${step.forward.selectedIndex === index ? ' selected' : ''}`;
-    item.innerHTML = `<span>${OUTPUT_NAMES[index]} <small>${GRID_ACTIONS[index].label}</small></span><strong>${probability === null ? '—' : `${formatNumber(probability * 100)}%`}</strong>`;
+    item.innerHTML = `<span>${BEGINNER_ANSWER_NAMES[index]}</span><strong>${probability === null ? '—' : `${formatNumber(probability * 100)}%`}</strong>`;
     fragment.append(item);
   });
   if (step.forward.selectedIndex !== null) {
     const decision = document.createElement('div');
     decision.className = 'decision-chip';
-    decision.textContent = `選択された判断：${actionDisplay(step.forward.selectedIndex)}（argmax）`;
+    decision.textContent = `最も選ばれやすい答え：${BEGINNER_ANSWER_NAMES[step.forward.selectedIndex]}（argmax）`;
     fragment.append(decision);
   }
   elements['output-summary'].replaceChildren(fragment);
@@ -466,7 +569,7 @@ function renderComparison(step) {
   }
   elements.comparison.className = `comparison ${comparison.lossDecreased ? 'success' : 'warning'}`;
   elements.comparison.innerHTML = `
-    <div class="comparison-head"><strong>正解：${OUTPUT_NAMES[comparison.targetIndex]}</strong><span>${comparison.lossDecreased ? '損失は減少' : '損失は非減少'}</span></div>
+    <div class="comparison-head"><strong>正解：${BEGINNER_ANSWER_NAMES[comparison.targetIndex]}</strong><span>${comparison.lossDecreased ? '損失は減少' : '損失は非減少'}</span></div>
     <div class="metric-grid">
       <div><span>正解確率（前）</span><strong>${formatNumber(comparison.targetProbabilityBefore * 100)}%</strong></div>
       <div><span>正解確率（後）</span><strong>${formatNumber(comparison.targetProbabilityAfter * 100)}%</strong></div>
@@ -479,7 +582,7 @@ function renderComparison(step) {
       <div><span>最大変更量</span><strong>${formatNumber(comparison.maximumAbsoluteChange)}</strong></div>
     </div>
     <div class="probability-comparison">
-      ${OUTPUT_NAMES.map((name, index) => `<span>${name}: ${formatNumber(comparison.beforeProbabilities[index] * 100)}% → ${formatNumber(comparison.afterProbabilities[index] * 100)}%</span>`).join('')}
+      ${BEGINNER_ANSWER_NAMES.map((name, index) => `<span>${name}: ${formatNumber(comparison.beforeProbabilities[index] * 100)}% → ${formatNumber(comparison.afterProbabilities[index] * 100)}%</span>`).join('')}
     </div>
   `;
 }
@@ -1122,19 +1225,20 @@ function moveQuickStartToCurrentAction() {
 
 function render() {
   const step = engine.current;
+  renderObservationGuide(step);
   elements['phase-value'].textContent = step.phase;
   elements['step-value'].textContent = `${engine.index} / ${engine.length - 1}`;
   elements['learning-count'].textContent = String(step.network.learningCount);
-  elements['status-message'].textContent = step.title;
+  elements['status-message'].textContent = supervisedText(step.title);
   elements['step-progress'].max = Math.max(1, engine.length - 1);
   elements['step-progress'].value = engine.index;
-  elements['step-title'].textContent = step.title;
-  elements['step-description'].textContent = step.description;
+  elements['step-title'].textContent = supervisedText(step.title);
+  elements['step-description'].textContent = supervisedText(step.description);
   elements['natural-explanation'].textContent = EXPLANATIONS[step.explanationKey] ?? EXPLANATIONS.learning;
 
   renderFormula(step);
   renderGridWorldPanel(step);
-  renderNetwork(elements['network-svg'], step, formatNumber, inspectParameter);
+  renderNetwork(elements['network-svg'], step, formatNumber, inspectParameter, BEGINNER_ANSWER_NAMES);
   renderOutputSummary(step);
   renderParameters(step);
   renderComparison(step);
@@ -1398,7 +1502,12 @@ function bindEvents() {
   elements['quick-explore'].addEventListener('click', showBeginnerDetail);
   elements['experience-pause'].addEventListener('click', pauseSupervisedPlayback);
   elements['beginner-repeat-learning'].addEventListener('click', startSupervisedPlayback);
-  elements['beginner-result-detail'].addEventListener('click', showBeginnerDetail);
+  elements['beginner-result-detail'].addEventListener('click', () => showGlossaryTerm('weight'));
+  elements.glossary.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-term-target]');
+    if (button) showGlossaryTerm(button.dataset.termTarget);
+  });
+  document.getElementById('term-return').addEventListener('click', returnFromTerm);
 
   elements['apply-preset'].addEventListener('click', () => {
     const preset = PRESETS[elements['preset-select'].value];

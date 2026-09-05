@@ -446,6 +446,13 @@ export class ReinforcementStepEngine {
     return this.current;
   }
 
+  goToStage(stage) {
+    const index = this.steps.findIndex((step) => step.stage === stage);
+    if (index < 0) return null;
+    this.index = index;
+    return this.current;
+  }
+
   runToEnd() {
     this.index = this.steps.length - 1;
     return this.current;

@@ -128,6 +128,19 @@ test('RLステップ実行と一括実行の最終スナップショットが一
   assert.deepEqual(stepped.summary, bulk.summary);
 });
 
+test('用語から指定したRL段階の実スナップショットへ直接移動できる', () => {
+  const engine = new ReinforcementStepEngine(
+    createNetwork('rl-term-navigation'),
+    createGridWorld('rl-term-navigation-world'),
+    { randomSeed: 'rl-term-navigation-random', maxSteps: 4 },
+  );
+  assert.equal(engine.goToStage('rl-policy')?.stage, 'rl-policy');
+  assert.equal(engine.current.details.policy.probabilities.length, 3);
+  assert.equal(engine.goToStage('rl-transition')?.details.experience.reward !== undefined, true);
+  assert.equal(engine.goToStage('rl-update')?.active.parameter !== undefined, true);
+  assert.equal(engine.goToStage('not-a-stage'), null);
+});
+
 test('連続表示の実移動境界を通っても一括実行と同じ最終状態になる', () => {
   const network = createNetwork('rl-visible-boundary-equivalence');
   const world = createGridWorld('rl-visible-boundary-world');

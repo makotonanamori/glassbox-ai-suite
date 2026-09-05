@@ -25,6 +25,7 @@ test("初回ガイドは生成ループを先に見せ、内部Traceを詳細へ
   assert.match(html, /id="beginner-selected-token"/);
   assert.match(html, /id="token-name-bridge"/);
   assert.match(html, /このまとまりを「Token（トークン）」/);
+  assert.match(html, /id="token-bridge-view"[^>]*>Tokenを画面で見る/);
   assert.match(html, /候補 → 選択 → 追加を5回/);
   assert.match(html, /候補の確率/);
   assert.match(html, /文末へ足す/);
@@ -45,6 +46,9 @@ test("初回ガイドは生成ループを先に見せ、内部Traceを詳細へ
   assert.match(app, /continueLearningObserver/);
   assert.match(app, /captureLearningObservation/);
   assert.match(app, /#forward-next/);
+  assert.match(app, /LANGUAGE_TERMS/);
+  assert.match(app, /showLanguageTerm\("token"\)/);
+  assert.match(app, /data-term-target/);
 });
 
 test("ブラウザ成果物は外部script・stylesheetへ依存しない", async () => {

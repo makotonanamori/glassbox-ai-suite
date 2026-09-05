@@ -140,11 +140,25 @@ export function renderParameterInspector(name, tensor, update, learningRate, pre
   const columns = tensor.shape.length === 2 ? tensor.shape[1] : Math.min(8, tensor.shape[0]);
   const cells = current.map((value, index) => `<button class="parameter-cell" data-param-index="${index}" style="--cell-color:${value >= 0 ? "var(--positive)" : "var(--negative)"};--intensity:${Math.min(1, Math.abs(value) / scale).toFixed(3)}" title="index ${index}\nold ${fmt(values[index])}\ngrad ${fmt(gradients[index])}\ndelta ${fmt(deltas[index])}\nnew ${fmt(value)}">${fmt(value)}</button>`).join("");
   return `<p><strong>${escapeHtml(name)}</strong><br><span class="microcopy">Shape [${tensor.shape.join(" × ")}] · ${tensor.data.length} values</span></p>
-    <pre class="formula">new = old - learningRate × clippedGradient
-learningRate = ${fmt(learningRate)}
+    <pre class="formula">更新後 = 更新前 + 保存された変更量
+変更量は、学習時の学習率と大きさを制限した勾配から計算しています。
 
-セルにマウスを置くと old / gradient / delta / new を確認できます。</pre>
+セルを押すと、その数字の更新前・勾配・変更量・更新後を下に表示します。</pre>
+    <div id="parameter-cell-detail" role="status">${renderParameterCellDetails(name, tensor, update, 0, precision)}</div>
     <div class="parameter-heatmap" style="--columns:${columns}">${cells}</div>`;
+}
+
+export function renderParameterCellDetails(name, tensor, update, index, precision = 4) {
+  const fmt = formatter(precision);
+  const label = `${escapeHtml(name)}[${index}]`;
+  if (!Number.isInteger(index) || index < 0 || index >= tensor.data.length) return '表示する数字を選んでください。';
+  if (!update) return `<p>${label} の現在値：${fmt(tensor.data[index])}。まだ保存された学習結果がありません。「Train One Step」で1回学習すると直し方を確認できます。</p>`;
+  return `<p><strong>${label}</strong> の直前の学習結果</p><dl class="parameter-values">
+    <dt>更新前</dt><dd>${fmt(update.oldValue[index])}</dd>
+    <dt>勾配（大きさを制限する前）</dt><dd>${fmt(update.gradient[index])}</dd>
+    <dt>実際に足した変更量</dt><dd>${fmt(update.update[index])}</dd>
+    <dt>更新後</dt><dd>${fmt(update.newValue[index])}</dd></dl>
+    <p>更新前 ${fmt(update.oldValue[index])} + 変更量 (${fmt(update.update[index])}) = 更新後 ${fmt(update.newValue[index])}</p>`;
 }
 
 export function renderLossChart(history) {

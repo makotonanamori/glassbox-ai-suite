@@ -5,12 +5,35 @@ import { TinyTransformer } from "../model/transformer.js";
 import { ForwardStepEngine, FORWARD_STAGES } from "../model/step-engine.js";
 import { importApplicationState, exportApplicationState } from "../utils/serialization.js";
 import { Trainer } from "../training/trainer.js";
+import { renderParameterCellDetails } from "../visualization/renderers.js";
 
 function setup(seed = 42) {
   const dataset = new LanguageDataset();
   const model = new TinyTransformer(dataset.tokenizer.vocabulary, { seed });
   return { dataset, model };
 }
+
+test("勾配の説明はclip後の実更新を保存値から表示し、未学習の更新を作らない", () => {
+  const { dataset, model } = setup();
+  const trainer = new Trainer(model, dataset, { learningRate: 0.03, clipNorm: 0.1, seed: 42 });
+  const name = "embeddings.token";
+  const tensor = model.parameterMap.get(name);
+  const ready = renderParameterCellDetails(name, tensor, null, 0, 8);
+  assert.match(ready, /まだ保存された学習結果がありません/);
+  assert.doesNotMatch(ready, /<dt>更新後/);
+  const result = trainer.trainOneStep();
+  assert.ok(result.clipScale < 1);
+  const saved = trainer.lastUpdate[name];
+  const index = saved.gradient.findIndex((value) => Math.abs(value) > 1e-4);
+  assert.ok(index >= 0);
+  const html = renderParameterCellDetails(name, tensor, saved, index, 8);
+  for (const field of ["oldValue", "gradient", "update", "newValue"]) {
+    assert.ok(html.includes(saved[field][index].toFixed(8)), field);
+  }
+  trainer.learningRate = 0.7;
+  assert.equal(renderParameterCellDetails(name, tensor, saved, index, 8), html);
+  assert.match(renderParameterCellDetails(name, tensor, saved, -1), /数字を選んで/);
+});
 
 test("forward trace has expected shapes and probability sums", () => {
   const { dataset, model } = setup();
@@ -65,4 +88,7 @@ test("trace snapshots and step engine remain internally consistent", () => {
   assert.equal(engine.current().key, "probabilities");
   for (let i = 1; i < FORWARD_STAGES.length; i += 1) engine.previous();
   assert.equal(engine.current().key, "tokenizer");
+  assert.equal(engine.goToStage("attentionWeights").key, "attentionWeights");
+  assert.equal(engine.goToStage("probabilities").key, "probabilities");
+  assert.equal(engine.goToStage("not-a-stage"), null);
 });

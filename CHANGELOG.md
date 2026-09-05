@@ -72,3 +72,13 @@ Glassbox AI Suiteの利用者向け変更履歴です。
 
 [Unreleased]: https://github.com/makotonanamori/glassbox-ai-suite/compare/6d0ad66...HEAD
 [1.0.0]: https://github.com/makotonanamori/glassbox-ai-suite/tree/6d0ad66
+
+## 2026-09-05 — 観察導線の追加（公開前）
+
+- 用語から実物へ移動し、元のsnapshotと操作元へ戻る導線を三appへ追加。
+- Iの答えA/B/C表記を通常画面にも統一。I / IIIは現在の用語と次の計算を案内。
+- IIの16段階を日常語で説明し、Loss / Gradientを実学習結果へ接続。
+- IIのParameter cellをタッチ・keyboardで読み取れるようにし、保存済み更新量で計算式を表示。初期化時の古い比較表示も解消。
+- 各appから次の学習信号を確かめる実験へ案内。
+
+計算方式、Parameter構造、serialization、独立起動、外部依存なしの方針は維持する。公開版への反映は対応PRのmerge後となる。

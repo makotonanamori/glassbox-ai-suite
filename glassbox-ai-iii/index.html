@@ -22,6 +22,7 @@
         <span>外部API・学習済みモデル・MLライブラリ不使用</span>
       </details>
     </header>
+    <nav class="observation-nav" aria-label="観察したい場所へ"><a href="#quick-start-heading">最初の体験へ</a><a href="#rl-current-title">今の計算を詳しく</a><a href="#glossary-heading">現象の名前を調べる</a></nav>
 
     <section class="status-strip" aria-label="現在の実験状態" hidden data-legacy-compatibility>
       <div><span>フェーズ</span><strong id="phase-value">準備</strong></div>
@@ -108,7 +109,7 @@
         </div>
         <div class="beginner-result-actions">
           <button id="rl-beginner-continue" type="button" class="primary">さらに10回試して比べる</button>
-          <button id="rl-beginner-detail" type="button">1回分を止めながら見る</button>
+          <button id="rl-beginner-detail" type="button">方策を画面で見る</button>
         </div>
       </div>
     </section>
@@ -383,6 +384,11 @@
             <aside class="explanation-box">
               <span class="box-label">この段階の因果関係</span>
               <p id="rl-explanation">エピソード中はネットワークを固定し、終了後に報酬を方策勾配へ変換します。</p>
+              <div id="observation-guide" class="observation-guide">
+                <strong>いま見ている現象の名前（押すと説明）</strong>
+                <div data-current-terms></div>
+                <p data-next-observation></p>
+              </div>
             </aside>
 
             <div class="table-scroll rl-experience-scroll">
@@ -607,9 +613,9 @@
         <div class="panel-heading">
           <div>
             <p class="panel-index">08</p>
-            <h2 id="glossary-heading">用語の短い補足</h2>
+            <h2 id="glossary-heading">見た現象の名前を知る</h2>
           </div>
-          <span class="panel-kicker">観察用語集</span>
+          <span class="panel-kicker">説明 → 実物へ戻る</span>
         </div>
         <div id="glossary" class="glossary"></div>
       </section>
@@ -630,6 +636,13 @@
       </section>
     </main>
 
+    <aside id="term-visit" class="term-visit" aria-label="用語の実物を観察中" hidden><p></p><button id="term-return" type="button">用語を見る前の場面へ戻る</button></aside>
+    <nav class="series-continuation" aria-label="実験をつなげて考える">
+      <strong>三つの実験をつなげると</strong>
+      <p>Iは人が指定した正解、IIは例文に実際に続いた語、IIIは行動の後の報酬を手がかりに内部の数字を変えます。IIIでは良い報酬の定義も人が決めます。旋回へのボーナスなど、目的と違う報酬なら選び方はどう変わるでしょう。</p>
+      <a href="#rl-reward-profile">今の試行を終えたら、報酬プリセットを変えて試す</a>
+      <a href="https://makotonanamori.github.io/glassbox-ai-suite/">三つの実験を選び直す</a>
+    </nav>
     <footer>
       <p>Glassbox AI III — 環境履歴、報酬、REINFORCE方策更新を別軸で追跡する透明な強化学習実験室です。</p>
     </footer>
